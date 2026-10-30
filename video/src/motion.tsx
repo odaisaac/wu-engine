@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig, Img, staticFile } from "remotion";
-import { C, F } from "./theme";
+import { C, F, DS } from "./theme";
+import { STYLE } from "./styles";
 import { useTh } from "./themes";
 
 export const OUT = Easing.bezier(0.16, 1, 0.3, 1);
@@ -53,7 +54,7 @@ export const KText: React.FC<{ words: string | [string, string?][]; size?: numbe
         const s = spring({ frame: f - at - i * stagger, fps, config: { damping: 15, stiffness: 140, mass: 0.8 } });
         return (
           <span key={i} style={{ display: "inline-block", overflow: "hidden", paddingBottom: size * 0.12, marginBottom: -size * 0.12, lineHeight: lh }}>
-            <span style={{ display: "inline-block", fontFamily: font === "serif" ? F.serif : F.sans, fontWeight: weight, fontStyle: italic ? "italic" : "normal", fontSize: size, color: c ?? color ?? T.fg, transform: `translateY(${(1 - s) * 115}%) rotate(${(1 - s) * 4}deg)`, opacity: clamp(s * 1.6), transformOrigin: "0 100%" }}>{w}</span>
+            <span style={{ display: "inline-block", fontFamily: font === "serif" ? F.serif : F.sans, fontWeight: weight, fontStyle: italic && (font === "sans" || STYLE.displayItalicOk) ? "italic" : "normal", fontSize: font === "serif" ? size * DS : size, textTransform: font === "serif" && STYLE.displayUpper ? "uppercase" : undefined, color: c ?? color ?? T.fg, transform: `translateY(${(1 - s) * 115}%) rotate(${(1 - s) * 4}deg)`, opacity: clamp(s * 1.6), transformOrigin: "0 100%" }}>{w}</span>
           </span>
         );
       })}
@@ -71,7 +72,7 @@ export const Count: React.FC<{ to: number; from?: number; at?: number; d?: numbe
   const t = useT(at, d, Easing.out(Easing.cubic));
   const v = mix(from, to, t);
   const txt = sep ? v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) : v.toFixed(dec);
-  return <span style={{ fontFamily: F.serif, fontWeight: weight, fontSize: size, color: color ?? T.fg, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{pre}{txt}{suf}</span>;
+  return <span style={{ fontFamily: F.serif, fontWeight: weight, fontSize: size * DS, color: color ?? T.fg, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{pre}{txt}{suf}</span>;
 };
 
 export const Ring: React.FC<{ cx: number; cy: number; r: number; v: number; at?: number; d?: number; color?: string; w?: number }> = ({ cx, cy, r, v, at = 0, d = 50, color = C.amber, w = 26 }) => {
