@@ -4,6 +4,7 @@ import { F } from "./theme";
 import { STYLE } from "./styles";
 import { useTh } from "./themes";
 import { BarRow, Count, KText, Tag, clamp, useSpr } from "./motion";
+import { mbx } from "./transitions";
 
 export type Overlay =
   | { type: "title"; tag?: string; text: string; hl?: string[] }
@@ -31,7 +32,7 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
     case "title":
       return <div style={{ ...box, ...(onFootage ? { top: 330 } : {}) }}>{o.tag ? <Tag at={6} color={acc} size={30}>{o.tag}</Tag> : null}<div style={{ height: 22 }} /><KText words={words(o.text, o.hl, acc)} size={onFootage ? 110 : 128} at={12} font="sans" weight={900} stagger={4} /></div>;
     case "kinetic":
-      return <div style={box}><KText words={words(o.text, o.hl, acc)} size={onFootage ? 88 : 112} at={at(0.08)} />{o.sub ? <Sub at={at(0.45)}>{o.sub}</Sub> : null}</div>;
+      return <div style={box}><KText words={words(o.text, o.hl, acc)} size={onFootage ? 88 : 112} at={Math.min(at(0.08), 8)} />{o.sub ? <Sub at={at(0.45)}>{o.sub}</Sub> : null}</div>;
     case "stat":
       return (
         <div style={box}>
@@ -68,13 +69,13 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
       return (
         <div style={box}>
           {o.title ? <><Tag at={4} color={acc}>{o.title}</Tag><div style={{ height: 30 }} /></> : null}
-          {o.items.map((it, i) => <Item key={i} at={at(0.1 + i * (0.6 / o.items.length))} n={i + 1} text={it} />)}
+          {o.items.map((it, i) => <Item key={i} at={Math.min(at(0.1), 10) + at(i * (0.6 / o.items.length))} n={i + 1} text={it} />)}
         </div>
       );
     case "quote":
       return (
         <div style={{ ...box, ...(onFootage ? { top: 260 } : {}) }}>
-          <KText words={`“${o.text}”`} size={onFootage ? 70 : 84} italic weight={400} at={at(0.08)} stagger={3} />
+          <KText words={`“${o.text}”`} size={onFootage ? 70 : 84} italic weight={400} at={Math.min(at(0.08), 8)} stagger={3} />
           <Sub at={at(0.4)}>{o.by}</Sub>
         </div>
       );
@@ -101,9 +102,10 @@ const Sub: React.FC<{ at: number; children: React.ReactNode }> = ({ at, children
   return <div style={{ fontFamily: F.sans, fontWeight: 500, fontSize: 42, color: T.dim, marginTop: 24, opacity: clamp(s * 1.5), transform: `translateY(${(1 - s) * 24}px)` }}>{children}</div>;
 };
 const Item: React.FC<{ at: number; n: number; text: string }> = ({ at, n, text }) => {
-  const T = useTh(); const s = useSpr(at, { damping: 13, stiffness: 140 });
+  const T = useTh(); const s = useSpr(at, { damping: 13, stiffness: 140 }); const sp = useSpr(at + 1, { damping: 13, stiffness: 140 });
+  const b = mbx((s - sp) * 160);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 28, marginBottom: 26, opacity: clamp(s * 2), transform: `translateX(${(1 - s) * -60}px)` }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 28, marginBottom: 26, opacity: clamp(s * 2), transform: `translateX(${(1 - s) * -160}px)`, filter: b || undefined }}>
       <div style={{ width: 74, height: 74, borderRadius: 37, background: T.amber, color: "#15171E", fontFamily: F.sans, fontWeight: 900, fontSize: 40, display: "grid", placeItems: "center", flexShrink: 0 }}>{n}</div>
       <div style={{ fontFamily: F.sans, fontWeight: 700, fontSize: 58, color: T.fg }}>{text}</div>
     </div>

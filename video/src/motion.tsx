@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig, Img, staticFile } from "remotion";
 import { C, F, DS } from "./theme";
 import { STYLE } from "./styles";
+import { mby, mbx } from "./transitions";
 import { useTh } from "./themes";
 
 export const OUT = Easing.bezier(0.16, 1, 0.3, 1);
@@ -51,10 +52,14 @@ export const KText: React.FC<{ words: string | [string, string?][]; size?: numbe
   return (
     <div style={{ display: "flex", flexWrap: "wrap", justifyContent: align === "center" ? "center" : "flex-start", columnGap: size * 0.26, rowGap: 0, maxWidth: maxW }}>
       {arr.map(([w, c], i) => {
-        const s = spring({ frame: f - at - i * stagger, fps, config: { damping: 15, stiffness: 140, mass: 0.8 } });
+        const cfg = { damping: 15, stiffness: 140, mass: 0.8 };
+        const s = spring({ frame: f - at - i * stagger, fps, config: cfg });
+        const sp = spring({ frame: f - 1 - at - i * stagger, fps, config: cfg });
+        const sz = font === "serif" ? size * DS : size;
+        const blur = mby((s - sp) * 1.15 * sz);
         return (
           <span key={i} style={{ display: "inline-block", overflow: "hidden", paddingBottom: size * 0.12, marginBottom: -size * 0.12, lineHeight: lh }}>
-            <span style={{ display: "inline-block", fontFamily: font === "serif" ? F.serif : F.sans, fontWeight: weight, fontStyle: italic && (font === "sans" || STYLE.displayItalicOk) ? "italic" : "normal", fontSize: font === "serif" ? size * DS : size, textTransform: font === "serif" && STYLE.displayUpper ? "uppercase" : undefined, color: c ?? color ?? T.fg, transform: `translateY(${(1 - s) * 115}%) rotate(${(1 - s) * 4}deg)`, opacity: clamp(s * 1.6), transformOrigin: "0 100%" }}>{w}</span>
+            <span style={{ display: "inline-block", fontFamily: font === "serif" ? F.serif : F.sans, fontWeight: weight, fontStyle: italic && (font === "sans" || STYLE.displayItalicOk) ? "italic" : "normal", fontSize: font === "serif" ? size * DS : size, textTransform: font === "serif" && STYLE.displayUpper ? "uppercase" : undefined, color: c ?? color ?? T.fg, transform: `translateY(${(1 - s) * 115}%) rotate(${(1 - s) * 4}deg)`, opacity: clamp(s * 1.6), transformOrigin: "0 100%", filter: blur || undefined }}>{w}</span>
           </span>
         );
       })}

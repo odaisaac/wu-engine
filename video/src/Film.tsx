@@ -6,6 +6,7 @@ import { THEMES, ThemeCtx, Theme } from "./themes";
 import { Bg, Logo, KText, Tag, clamp, useSpr, IO, mix, Deco } from "./motion";
 import { OverlayView, Overlay } from "./Overlays";
 import { SubMid, EndCard } from "./Subscribe";
+import { Mover, TransFX, MBDefs } from "./transitions";
 import spec from "./spec.json";
 import timing from "./timing.json";
 
@@ -134,37 +135,6 @@ const SourceTag: React.FC<{ text: string }> = ({ text }) => (
   <div style={{ position: "absolute", left: 90, top: 50, background: "#0A0D14B3", padding: "8px 16px", borderRadius: 10, fontFamily: F.mono, fontWeight: 700, fontSize: 20, letterSpacing: STYLE.mono ? "0.08em" : "0.16em", textTransform: "uppercase", color: "#D5DCE6" }}>{text}</div>
 );
 
-const VAR: string[] = STYLE.trans;
-const panel = (v: string, t: number, color: string) => {
-  const base: React.CSSProperties = { position: "absolute", inset: 0, background: color };
-  if (v === "bar") return <div style={{ ...base, clipPath: `inset(0 ${100 - t * 100}% 0 0)` }} />;
-  if (v === "rise") return <div style={{ ...base, clipPath: `inset(${100 - t * 100}% 0 0 0)` }} />;
-  if (v === "iris") return <div style={{ ...base, WebkitMaskImage: `radial-gradient(circle at 50% 50%, black ${t * 80}%, transparent ${t * 80 + 0.5}%)` }} />;
-  const h = t * 50;
-  return <><div style={{ ...base, bottom: `${100 - h}%` }} /><div style={{ ...base, top: `${100 - h}%` }} /></>;
-};
-/** Footage-to-footage: quick dip. Anything involving graphics: coloured wipe in the next shot's colour. */
-const Trans: React.FC<{ dur: number; i: number }> = ({ dur, i }) => {
-  const f = useCurrentFrame();
-  const cur = SHOTS[i], nxt = SHOTS[i + 1], prev = SHOTS[i - 1];
-  const real = (s?: Shot) => !!s && (s.kind === "footage" || s.kind === "photo");
-  const E = Easing.bezier(0.7, 0, 0.25, 1);
-  if (prev && f < 8) {
-    if (real(prev) && real(cur) && cur.transition !== "bar" && cur.transition !== "iris") return <AbsoluteFill style={{ background: "#000", opacity: 0.55 * (1 - f / 8) }} />;
-    return <AbsoluteFill style={{ background: bgOf(cur, i), opacity: 1 - f / 8 }} />;
-  }
-  if (nxt) {
-    const wipe = !(real(cur) && real(nxt)) || nxt.transition && nxt.transition !== "fade";
-    const L = wipe ? 12 : 8;
-    if (f >= dur - L) {
-      const t = interpolate(f, [dur - L, dur], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: E });
-      if (!wipe) return <AbsoluteFill style={{ background: "#000", opacity: 0.55 * t }} />;
-      return <AbsoluteFill>{panel(nxt.transition && nxt.transition !== "fade" ? nxt.transition : VAR[i % VAR.length], t, bgOf(nxt, i + 1))}</AbsoluteFill>;
-    }
-  }
-  return null;
-};
-
 const Finish: React.FC = () => {
   const f = useCurrentFrame();
   return (
@@ -175,18 +145,23 @@ const Finish: React.FC = () => {
   );
 };
 
+const BG = (j: number) => bgOf(SHOTS[j], j);
+
 export const Film: React.FC = () => (
   <AbsoluteFill style={{ background: "#000" }}>
+    <MBDefs />
     {timing.shots.map((t, i) => {
       const s = SHOTS[i];
       const k = s.kind ?? "graphic";
       return (
         <Sequence key={s.id} from={t.start} durationInFrames={t.dur} premountFor={30}>
-          {k === "footage" || k === "photo" ? <Footage s={s} dur={t.dur} i={i} /> : k === "subscribe" ? <SubMid dur={t.dur} /> : k === "endcard" ? <EndCard dur={t.dur} /> : k === "intro" ? <Intro s={s} dur={t.dur} /> : <Graphic s={s} dur={t.dur} i={i} />}
-          {s.act ? <ActTag label={s.act.label} title={s.act.title} /> : null}
-          {s.source ? <SourceTag text={s.source} /> : null}
+          <Mover i={i} dur={t.dur} shots={SHOTS} bg={BG}>
+            {k === "footage" || k === "photo" ? <Footage s={s} dur={t.dur} i={i} /> : k === "subscribe" ? <SubMid dur={t.dur} /> : k === "endcard" ? <EndCard dur={t.dur} /> : k === "intro" ? <Intro s={s} dur={t.dur} /> : <Graphic s={s} dur={t.dur} i={i} />}
+            {s.act ? <ActTag label={s.act.label} title={s.act.title} /> : null}
+            {s.source ? <SourceTag text={s.source} /> : null}
+          </Mover>
+          <TransFX i={i} dur={t.dur} shots={SHOTS} bg={BG} />
           {s.text && k !== "endcard" && k !== "subscribe" ? <Caption text={s.text} dur={t.dur} /> : null}
-          <Trans dur={t.dur} i={i} />
         </Sequence>
       );
     })}
