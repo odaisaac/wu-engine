@@ -5,6 +5,7 @@ import { STYLE } from "./styles";
 import { useTh } from "./themes";
 import { BarRow, Count, KText, Tag, clamp, useSpr } from "./motion";
 import { mbx } from "./transitions";
+import { MapScene, FlowScene, MapOverlay, FlowOverlay } from "./MapFlow";
 
 export type Overlay =
   | { type: "title"; tag?: string; text: string; hl?: string[] }
@@ -15,7 +16,9 @@ export type Overlay =
   | { type: "list"; title?: string; items: string[] }
   | { type: "quote"; text: string; by: string }
   | { type: "lower"; text: string; sub?: string }
-  | { type: "none" };
+  | { type: "none" }
+  | MapOverlay
+  | FlowOverlay;
 
 const words = (text: string, hl: string[] = [], color: string): [string, string?][] =>
   text.split(" ").map((w) => [w, hl.some((h) => w.replace(/[^\w%$]/g, "").toLowerCase() === h.toLowerCase()) ? color : undefined]);
@@ -29,6 +32,8 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
   const acc = T.amber;
   switch (o.type) {
     case "none": return null;
+    case "map": return <MapScene o={o} dur={dur} />;
+    case "flow": return <FlowScene o={o} dur={dur} />;
     case "title":
       return <div style={{ ...box, ...(onFootage ? { top: 330 } : {}) }}>{o.tag ? <Tag at={6} color={acc} size={30}>{o.tag}</Tag> : null}<div style={{ height: 22 }} /><KText words={words(o.text, o.hl, acc)} size={onFootage ? 110 : 128} at={12} font="sans" weight={900} stagger={4} /></div>;
     case "kinetic":
