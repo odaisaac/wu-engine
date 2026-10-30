@@ -145,6 +145,8 @@ const Finish: React.FC = () => {
   );
 };
 
+/** Act tags are planning structure only — never shown on screen unless a spec explicitly sets "showActs": true. */
+const SHOW_ACTS = (spec as { showActs?: boolean }).showActs === true;
 const BG = (j: number) => bgOf(SHOTS[j], j);
 
 export const Film: React.FC = () => (
@@ -157,7 +159,7 @@ export const Film: React.FC = () => (
         <Sequence key={s.id} from={t.start} durationInFrames={t.dur} premountFor={30}>
           <Mover i={i} dur={t.dur} shots={SHOTS} bg={BG}>
             {k === "footage" || k === "photo" ? <Footage s={s} dur={t.dur} i={i} /> : k === "subscribe" ? <SubMid dur={t.dur} /> : k === "endcard" ? <EndCard dur={t.dur} /> : k === "intro" ? <Intro s={s} dur={t.dur} /> : <Graphic s={s} dur={t.dur} i={i} />}
-            {s.act ? <ActTag label={s.act.label} title={s.act.title} /> : null}
+            {s.act && SHOW_ACTS ? <ActTag label={s.act.label} title={s.act.title} /> : null}
             {s.source ? <SourceTag text={s.source} /> : null}
           </Mover>
           <TransFX i={i} dur={t.dur} shots={SHOTS} bg={BG} />
