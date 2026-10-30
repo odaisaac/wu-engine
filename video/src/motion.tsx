@@ -37,8 +37,8 @@ export const Bg: React.FC<{ a?: string; b?: string; seed?: number }> = ({ seed =
   const f = useCurrentFrame(); const T = useTh();
   return (
     <AbsoluteFill style={{ background: T.bg, overflow: "hidden" }}>
-      <div style={{ position: "absolute", width: 1800, height: 1800, background: `radial-gradient(circle at 50% 50%, ${T.blobA} 0%, transparent 60%)`, opacity: T.dark ? 0.32 : 0.45, left: -550 + Math.sin(f / 90 + seed) * 120, top: -650 + Math.cos(f / 110 + seed) * 90 }} />
-      <div style={{ position: "absolute", width: 1600, height: 1600, background: `radial-gradient(circle at 50% 50%, ${T.blobB} 0%, transparent 60%)`, opacity: T.dark ? 0.3 : 0.4, right: -600 + Math.cos(f / 100 + seed * 2) * 120, bottom: -700 + Math.sin(f / 80 + seed) * 100 }} />
+      <div style={{ position: "absolute", width: 1800, height: 1800, background: `radial-gradient(circle at 50% 50%, ${T.blobA} 0%, transparent 60%)`, opacity: T.dark ? 0.2 : 0.3, left: -550 + Math.sin(f / 90 + seed) * 120, top: -650 + Math.cos(f / 110 + seed) * 90 }} />
+      <div style={{ position: "absolute", width: 1600, height: 1600, background: `radial-gradient(circle at 50% 50%, ${T.blobB} 0%, transparent 60%)`, opacity: T.dark ? 0.18 : 0.26, right: -600 + Math.cos(f / 100 + seed * 2) * 120, bottom: -700 + Math.sin(f / 80 + seed) * 100 }} />
       <AbsoluteFill style={{ backgroundImage: T.pattern, backgroundSize: T.patSize, backgroundPosition: `${(f * 0.4) % 400}px ${(f * 0.2) % 400}px` }} />
     </AbsoluteFill>
   );
@@ -64,7 +64,7 @@ export const KText: React.FC<{ words: string | [string, string?][]; size?: numbe
 
 export const Tag: React.FC<{ children: React.ReactNode; at?: number; color?: string; size?: number }> = ({ children, at = 0, color, size = 30 }) => {
   const s = useSpr(at); const T = useTh();
-  return <div style={{ fontFamily: F.sans, fontWeight: 700, fontSize: size, letterSpacing: "0.22em", textTransform: "uppercase", color: color ?? T.amber, opacity: s, transform: `translateX(${(1 - s) * -40}px)` }}>{children}</div>;
+  return <div style={{ fontFamily: F.mono, fontWeight: 700, fontSize: size, letterSpacing: STYLE.mono ? "0.12em" : "0.22em", textTransform: "uppercase", color: color ?? T.amber, opacity: s, transform: `translateX(${(1 - s) * -40}px)` }}>{children}</div>;
 };
 
 export const Count: React.FC<{ to: number; from?: number; at?: number; d?: number; dec?: number; pre?: string; suf?: string; size?: number; color?: string; sep?: boolean; weight?: number }> = ({ to, from = 0, at = 0, d = 40, dec = 0, pre = "", suf = "", size = 200, color, sep = true, weight = 700 }) => {
@@ -97,7 +97,7 @@ export const BarRow: React.FC<{ x: number; y: number; w: number; h?: number; v: 
       <div style={{ flex: 1, height: h, background: T.panel, borderRadius: h / 2, position: "relative", overflow: "hidden" }}>
         <div style={{ width: `${v * t * 100}%`, height: "100%", background: color, borderRadius: h / 2 }} />
       </div>
-      <div style={{ width: 150, fontFamily: F.serif, fontWeight: 700, fontSize: 56, color }}>{val}</div>
+      <div style={{ minWidth: 230, textAlign: "right", whiteSpace: "nowrap", fontFamily: F.serif, fontWeight: 700, fontSize: 56 * DS, color, fontVariantNumeric: "tabular-nums" }}>{val}</div>
     </div>
   );
 };
@@ -179,3 +179,25 @@ export const Particles: React.FC<{ n?: number; color?: string }> = ({ n = 40, co
 export const Logo: React.FC<{ size: number; style?: React.CSSProperties }> = ({ size, style }) => (
   <Img src={staticFile("logo.png")} style={{ width: size, height: size, borderRadius: size / 2, ...style }} />
 );
+
+
+/** Editorial chrome for graphic scenes: corner registration marks, a giant outlined "ghost" of the key figure drifting on the right, and a hairline that draws in. Fills dead space the way a designed broadcast frame does. */
+export const Deco: React.FC<{ ghost?: string; dur: number; seed?: number }> = ({ ghost, dur, seed = 0 }) => {
+  const f = useCurrentFrame(); const T = useTh();
+  const t = clamp(f / dur);
+  const s = useSpr(4, { damping: 20, stiffness: 80 });
+  const line = T.dark ? "#FFFFFF" : "#000000";
+  const mark = (x: number, y: number, sx: number, sy: number) => (
+    <div style={{ position: "absolute", left: x, top: y, width: 34, height: 34, borderLeft: sx > 0 ? `2px solid ${line}` : undefined, borderRight: sx < 0 ? `2px solid ${line}` : undefined, borderTop: sy > 0 ? `2px solid ${line}` : undefined, borderBottom: sy < 0 ? `2px solid ${line}` : undefined, opacity: 0.28 * s, transform: `translate(${(1 - s) * -sx * 18}px, ${(1 - s) * -sy * 18}px)` }} />
+  );
+  const g = ghost ? ghost.slice(0, 8) : "";
+  const gSize = g.length <= 3 ? 760 : g.length <= 5 ? 560 : 400;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", overflow: "hidden" }}>
+      {g ? <div style={{ position: "absolute", right: -60 + mix(0, 70, IO(t)), top: "50%", transform: `translateY(-52%) scale(${0.96 + 0.04 * s})`, fontFamily: F.serif, fontWeight: 800, fontSize: gSize * DS, lineHeight: 0.9, color: "transparent", WebkitTextStroke: `3px ${T.fg}`, opacity: 0.1 * s, whiteSpace: "nowrap", letterSpacing: "-0.02em", textTransform: STYLE.displayUpper ? "uppercase" : undefined }}>{g}</div> : null}
+      {mark(28, 28, 1, 1)}{mark(1920 - 62, 28, -1, 1)}{mark(28, 1080 - 62, 1, -1)}{mark(1920 - 62, 1080 - 62, -1, -1)}
+      <div style={{ position: "absolute", left: 130, top: 112, height: 2, width: 1660 * OUT(clamp((f - 6) / 40)), background: line, opacity: 0.14 }} />
+      <div style={{ position: "absolute", right: 130, top: 124, fontFamily: F.sans, fontWeight: 600, fontSize: 18, letterSpacing: "0.3em", color: T.dim, opacity: 0.8 * clamp((f - 120) / 15) }}>{String(seed + 1).padStart(2, "0")}</div>
+    </AbsoluteFill>
+  );
+};

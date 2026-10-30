@@ -15,6 +15,8 @@ export type Style = {
   displayScale: number;        // wide/condensed display fonts need resizing to fit layouts
   displayUpper?: boolean;      // force uppercase display text (condensed poster faces)
   displayItalicOk?: boolean;   // false → never fake an italic
+  mono?: FontDef;              // optional accent face for tags, source labels and captions
+  labelBody?: boolean;         // stat labels in body face (for very wide display faces)
   accent: string;              // act tags, intro highlights
   looks: string[];             // graphic-scene theme rotation (themes.tsx keys)
   intro: string;               // theme for intro card
@@ -59,7 +61,7 @@ export const STYLES: Record<string, Style> = {
   },
   noir: {
     name: "noir", label: "Documentary Noir", bestFor: "true crime, scams, mysteries, investigations, dark history",
-    display: FD.cormorant, body: FD.plexSans, displayScale: 1.08, displayItalicOk: true,
+    display: FD.cormorant, body: FD.plexSans, mono: FD.plexMono, displayScale: 1.08, displayItalicOk: true,
     accent: "#E23B3B", looks: ["blood", "ash", "night", "blood", "ink"], intro: "ink", endcard: "ink",
     trans: ["iris", "split", "rise"], caption: "shadow", captionFg: "#F1EEE8", captionBg: "transparent",
     grade: "saturate(0.55) contrast(1.15) brightness(0.92)", tint: "#3A0A0A", grain: 0.11, vignette: 0.6,
@@ -74,7 +76,7 @@ export const STYLES: Record<string, Style> = {
   },
   tech: {
     name: "tech", label: "Tech Signal", bestFor: "AI, tech, internet, cyber, startups, the future of work",
-    display: FD.grotesk, body: FD.jet, displayScale: 1,
+    display: FD.grotesk, body: FD.inter, mono: FD.jet, displayScale: 1,
     accent: "#38E1FF", looks: ["grid", "volt", "night", "grid", "mint"], intro: "grid", endcard: "grid",
     trans: ["rise", "bar", "split"], caption: "edge", captionFg: "#E8F7FF", captionBg: "#04121BD9",
     grade: "saturate(0.9) contrast(1.08) hue-rotate(-6deg)", tint: "#06263A", grain: 0.05, vignette: 0.35,
@@ -103,7 +105,7 @@ export const STYLES: Record<string, Style> = {
   },
   cosmic: {
     name: "cosmic", label: "Cinematic Future", bestFor: "space, science, climate, big-picture 'what happens next' films",
-    display: FD.unbounded, body: FD.sora, displayScale: 0.8,
+    display: FD.unbounded, body: FD.sora, displayScale: 0.8, labelBody: true,
     accent: "#7CF0DD", looks: ["deep", "night", "volt", "deep", "mint"], intro: "deep", endcard: "deep",
     trans: ["iris", "rise", "split"], caption: "shadow", captionFg: "#FFFFFF", captionBg: "transparent",
     grade: "contrast(1.1) saturate(1.15)", tint: "#0B1E3A", grain: 0.05, vignette: 0.45, music: "epic ambient, swelling pads",

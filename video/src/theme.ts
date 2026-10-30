@@ -8,5 +8,6 @@ export const C = {
 export const F = {
   serif: `'${STYLE.display.family}', Georgia, serif`,
   sans: `'${STYLE.body.family}', system-ui, sans-serif`,
+  mono: STYLE.mono ? `'${STYLE.mono.family}', ui-monospace, monospace` : `'${STYLE.body.family}', system-ui, sans-serif`,
 };
 export const DS = STYLE.displayScale;

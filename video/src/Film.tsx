@@ -3,7 +3,7 @@ import { AbsoluteFill, Easing, Img, OffthreadVideo, Sequence, interpolate, stati
 import { F, DS } from "./theme";
 import { STYLE } from "./styles";
 import { THEMES, ThemeCtx, Theme } from "./themes";
-import { Bg, Logo, KText, Tag, clamp, useSpr, IO, mix } from "./motion";
+import { Bg, Logo, KText, Tag, clamp, useSpr, IO, mix, Deco } from "./motion";
 import { OverlayView, Overlay } from "./Overlays";
 import { SubMid, EndCard } from "./Subscribe";
 import spec from "./spec.json";
@@ -36,9 +36,22 @@ const Footage: React.FC<{ s: Shot; dur: number; i: number }> = ({ s, dur, i }) =
   );
 };
 
+const ghostOf = (o?: Overlay): string | undefined => {
+  if (!o) return undefined;
+  const n = (v: number, p = "", x = "") => `${p}${v >= 10000 ? Math.round(v / 1000) + "K" : v}${x}`;
+  switch (o.type) {
+    case "stat": return n(o.value, o.prefix, o.suffix);
+    case "compare": case "bars": return undefined; // full-width layouts: a ghost would fight the data
+    case "list": return String(o.items.length).padStart(2, "0");
+    case "quote": return "\u201C";
+    case "kinetic": return (o.hl?.[0] ?? o.text.split(" ")[0]).toUpperCase();
+    default: return undefined;
+  }
+};
+
 const Graphic: React.FC<{ s: Shot; dur: number; i: number }> = ({ s, dur, i }) => (
   <ThemeCtx.Provider value={lookOf(s, i)}>
-    <AbsoluteFill><Bg seed={i} />{s.overlay ? <OverlayView o={s.overlay} dur={dur} onFootage={false} /> : null}</AbsoluteFill>
+    <AbsoluteFill><Bg seed={i} /><Deco ghost={ghostOf(s.overlay)} dur={dur} seed={i} />{s.overlay ? <OverlayView o={s.overlay} dur={dur} onFootage={false} /> : null}</AbsoluteFill>
   </ThemeCtx.Provider>
 );
 
@@ -60,26 +73,48 @@ const Intro: React.FC<{ s: Shot; dur: number }> = ({ s, dur }) => {
 };
 
 const capCss = (): React.CSSProperties => {
-  const base: React.CSSProperties = { fontFamily: F.sans, fontWeight: 600, fontSize: 38, lineHeight: 1.35, color: STYLE.captionFg };
+  const base: React.CSSProperties = { fontFamily: STYLE.name === "tech" ? F.mono : F.sans, fontWeight: 600, fontSize: 38, lineHeight: 1.35, color: STYLE.captionFg };
   switch (STYLE.caption) {
     case "shadow": return { ...base, fontWeight: 600, fontSize: 40, textShadow: "0 2px 6px #000, 0 0 22px #000C" };
-    case "highlight": return { ...base, fontWeight: 800, fontSize: 40, background: STYLE.captionBg, padding: "4px 18px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", textTransform: "uppercase", letterSpacing: "0.01em" };
+    case "highlight": return { ...base, fontWeight: 800, fontSize: 40, background: STYLE.captionBg, padding: "4px 16px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", lineHeight: 1.5 };
     case "pill": return { ...base, fontWeight: 600, background: STYLE.captionBg, padding: "10px 30px", borderRadius: 999, boxShadow: "0 8px 24px #0004" };
     case "edge": return { ...base, fontWeight: 500, fontSize: 34, background: STYLE.captionBg, padding: "10px 24px", borderLeft: `6px solid ${STYLE.accent}`, borderRadius: 4 };
-    case "bar": return { ...base, display: "block", background: STYLE.captionBg, borderTop: `5px solid ${STYLE.accent}`, padding: "14px 160px 18px", fontSize: 36 };
+    case "bar": return { ...base, background: STYLE.captionBg, borderTop: `5px solid ${STYLE.accent}`, padding: "14px 160px 18px", fontSize: 36 };
     default: return { ...base, background: STYLE.captionBg, padding: "8px 22px", borderRadius: 10 };
   }
 };
 
+/** Split narration into readable caption chunks: break on sentence/clause ends, ~4–9 words, never a 1–2 word orphan. */
+export const chunkText = (text: string): string[] => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const out: string[][] = []; let cur: string[] = [];
+  words.forEach((w, i) => {
+    cur.push(w);
+    const end = /[.!?]$/.test(w), clause = /[,;:—]$/.test(w);
+    const left = words.length - i - 1;
+    const weak = /^(a|an|the|to|of|and|or|in|on|for|with|at|by|from|that|their|his|her|its|is|was|it)$/i.test(w.replace(/[^\w]/g, ""));
+    if ((end && cur.length >= 3) || (clause && cur.length >= 5) || (cur.length >= 9 && !weak) || cur.length >= 12) {
+      if (left > 0 && left <= 2) return; // keep the tail with this chunk
+      out.push(cur); cur = [];
+    }
+  });
+  if (cur.length) { if (cur.length <= 2 && out.length) out[out.length - 1].push(...cur); else out.push(cur); }
+  return out.map((c) => c.join(" "));
+};
+
 const Caption: React.FC<{ text: string; dur: number }> = ({ text, dur }) => {
   const f = useCurrentFrame();
-  const w = text.split(" "); const per = 9; const chunks: string[] = [];
-  for (let i = 0; i < w.length; i += per) chunks.push(w.slice(i, i + per).join(" "));
-  const idx = Math.min(chunks.length - 1, Math.floor((f / Math.max(1, dur - 14)) * chunks.length));
-  const fade = clamp(f / 8) * (1 - clamp((f - (dur - 8)) / 8));
+  const chunks = React.useMemo(() => chunkText(text), [text]);
+  const weights = chunks.map((c) => c.length + 12);
+  const total = weights.reduce((a, b) => a + b, 0);
+  const speak = Math.max(1, dur - 18); // vo ends ~0.6s before the shot does
+  let acc = 0, idx = chunks.length - 1, local = 0;
+  for (let i = 0; i < chunks.length; i++) { const len = (weights[i] / total) * speak; if (f < acc + len) { idx = i; local = f - acc; break; } acc += len; }
+  const fade = clamp(f / 6) * (1 - clamp((f - (dur - 6)) / 6));
+  const pop = idx === 0 ? 1 : clamp(local / 4);
   return (
-    <div style={{ position: "absolute", left: STYLE.caption === "bar" ? 0 : 140, right: STYLE.caption === "bar" ? 0 : 140, bottom: STYLE.caption === "bar" ? 0 : 46, textAlign: "center", opacity: fade }}>
-      <span style={capCss()}>{chunks[idx]}</span>
+    <div style={{ position: "absolute", left: STYLE.caption === "bar" ? 0 : 160, right: STYLE.caption === "bar" ? 0 : 160, bottom: STYLE.caption === "bar" ? 0 : 50, textAlign: "center", opacity: fade }}>
+      <span style={{ ...capCss(), display: STYLE.caption === "bar" ? "block" : "inline", opacity: 0.4 + 0.6 * pop }}>{chunks[idx]}</span>
     </div>
   );
 };
@@ -96,7 +131,7 @@ const ActTag: React.FC<{ label: string; title: string }> = ({ label, title }) =>
 };
 
 const SourceTag: React.FC<{ text: string }> = ({ text }) => (
-  <div style={{ position: "absolute", left: 90, top: 50, background: "#0A0D14B3", padding: "8px 16px", borderRadius: 10, fontFamily: F.sans, fontWeight: 700, fontSize: 20, letterSpacing: "0.16em", textTransform: "uppercase", color: "#D5DCE6" }}>{text}</div>
+  <div style={{ position: "absolute", left: 90, top: 50, background: "#0A0D14B3", padding: "8px 16px", borderRadius: 10, fontFamily: F.mono, fontWeight: 700, fontSize: 20, letterSpacing: STYLE.mono ? "0.08em" : "0.16em", textTransform: "uppercase", color: "#D5DCE6" }}>{text}</div>
 );
 
 const VAR: string[] = STYLE.trans;

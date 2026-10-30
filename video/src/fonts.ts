@@ -12,4 +12,4 @@ const load = (d: FontDef) => {
   }
   return Promise.all(jobs);
 };
-export const fontsReady = Promise.all([load(STYLE.display), load(STYLE.body)]);
+export const fontsReady = Promise.all([load(STYLE.display), load(STYLE.body), ...(STYLE.mono ? [load(STYLE.mono)] : [])]);

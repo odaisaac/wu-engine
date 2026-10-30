@@ -1,6 +1,7 @@
 import React from "react";
 import { useCurrentFrame } from "remotion";
 import { F } from "./theme";
+import { STYLE } from "./styles";
 import { useTh } from "./themes";
 import { BarRow, Count, KText, Tag, clamp, useSpr } from "./motion";
 
@@ -36,7 +37,7 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
         <div style={box}>
           <Count to={o.value} from={o.from ?? 0} pre={o.prefix ?? ""} suf={o.suffix ?? ""} dec={o.dec ?? 0} size={onFootage ? 210 : 260} color={acc} d={Math.min(60, at(0.35))} at={6} />
           <div style={{ height: 12 }} />
-          <KText words={o.label} size={onFootage ? 60 : 70} at={at(0.18)} />
+          <KText words={o.label} size={onFootage ? 60 : 66} at={at(0.18)} maxW={1250} font={STYLE.labelBody ? "sans" : "serif"} weight={STYLE.labelBody ? 600 : 700} />
         </div>
       );
     case "compare":
@@ -57,9 +58,9 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
       const mx = o.max ?? Math.max(...o.items.map((i) => i.value));
       const cols = [T.coral, T.amber, T.teal, T.blue, T.fg];
       return (
-        <div style={{ position: "absolute", left: 110, right: 110, top: onFootage ? 120 : 150 }}>
+        <div style={{ position: "absolute", left: 130, right: 130, top: onFootage ? 120 : Math.max(150, (1080 - (90 + o.items.length * 140)) / 2 - 30) }}>
           {o.title ? <Tag at={4} color={acc}>{o.title}</Tag> : null}
-          {o.items.map((it, i) => <BarRow key={i} x={0} y={90 + i * 140} w={1700} v={it.value / mx} label={it.label} val={it.display} color={cols[i % cols.length]} at={10 + i * 10} d={45} labW={460} h={70} />)}
+          {o.items.map((it, i) => <BarRow key={i} x={0} y={90 + i * 140} w={1700} v={it.value / mx} label={it.label} val={it.display} color={cols[i % cols.length]} at={10 + i * 10} d={45} labW={520} h={64} />)}
         </div>
       );
     }
