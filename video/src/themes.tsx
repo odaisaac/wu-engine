@@ -1,0 +1,13 @@
+import React from "react";
+export type Theme = { name: string; bg: string; fg: string; dim: string; panel: string; line: string; amber: string; coral: string; teal: string; blue: string; sky: string; win: string; house: string; blobA: string; blobB: string; pattern: string; patSize: string; dark: boolean };
+const D = { amber: "#FFB547", coral: "#FF5E57", teal: "#3DD6C6", blue: "#4C8DFF" };
+export const THEMES: Record<string, Theme> = {
+  night: { name: "night", bg: "#0A0D14", fg: "#F4ECDD", dim: "#9AA6B8", panel: "#141B27", line: "#2B3647", ...D, sky: "#121A28", win: "#FFB547", house: "#F4ECDD", blobA: "#4C8DFF", blobB: "#FF5E57", pattern: "none", patSize: "auto", dark: true },
+  paper: { name: "paper", bg: "#F4ECDD", fg: "#15171E", dim: "#5D6573", panel: "#FFFFFF", line: "#DCCFB8", amber: "#D97E00", coral: "#E0433C", teal: "#0E9583", blue: "#2D63F0", sky: "#D8CAAF", win: "#FFFFFF", house: "#FFFFFF", blobA: "#FFB547", blobB: "#3DD6C6", pattern: "radial-gradient(#15171E22 2px, transparent 2.5px)", patSize: "34px 34px", dark: false },
+  sun: { name: "sun", bg: "#FFD23F", fg: "#15171E", dim: "#5B4B10", panel: "#FFE686", line: "#E6B320", amber: "#8A4B00", coral: "#D6281F", teal: "#006B5B", blue: "#1F48D1", sky: "#EDB51C", win: "#FFF6D0", house: "#FFFFFF", blobA: "#FF8A3D", blobB: "#FFFFFF", pattern: "repeating-linear-gradient(135deg, #15171E10 0 14px, transparent 14px 40px)", patSize: "auto", dark: false },
+  coral: { name: "coral", bg: "#FF5A4F", fg: "#FFF7EE", dim: "#FFD7CF", panel: "#E5443A", line: "#FF8C83", amber: "#FFE08A", coral: "#15171E", teal: "#FFFFFF", blue: "#15171E", sky: "#E5443A", win: "#FFE08A", house: "#FFF7EE", blobA: "#FFB547", blobB: "#B3001B", pattern: "radial-gradient(circle at 50% 50%, #FFFFFF14 0 40%, transparent 41%)", patSize: "220px 220px", dark: true },
+  volt: { name: "volt", bg: "#2346E8", fg: "#FFFFFF", dim: "#C3D1FF", panel: "#1B38C7", line: "#5574FF", amber: "#FFD23F", coral: "#FF8A7A", teal: "#7CF0DD", blue: "#FFFFFF", sky: "#1B38C7", win: "#FFD23F", house: "#FFFFFF", blobA: "#7CF0DD", blobB: "#0A1A80", pattern: "linear-gradient(#FFFFFF10 2px, transparent 2px), linear-gradient(90deg, #FFFFFF10 2px, transparent 2px)", patSize: "80px 80px", dark: true },
+  mint: { name: "mint", bg: "#0F8C7E", fg: "#F2FFFC", dim: "#BDEDE5", panel: "#0B7367", line: "#3CB5A6", amber: "#FFD23F", coral: "#FFB4A6", teal: "#15171E", blue: "#15171E", sky: "#0B7367", win: "#FFD23F", house: "#F2FFFC", blobA: "#FFD23F", blobB: "#05423B", pattern: "repeating-radial-gradient(circle at 80% 30%, #FFFFFF0E 0 2px, transparent 2px 46px)", patSize: "auto", dark: true },
+};
+export const ThemeCtx = React.createContext<Theme>(THEMES.night);
+export const useTh = () => React.useContext(ThemeCtx);

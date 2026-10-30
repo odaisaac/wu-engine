@@ -1,0 +1,8 @@
+node_modules/
+video/public/film
+video/public/thumb_face.jpg
+video/src/spec.json
+video/src/timing.json
+*.mp4
+*.m4a
+*.wav
