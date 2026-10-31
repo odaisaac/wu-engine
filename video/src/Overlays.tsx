@@ -7,6 +7,8 @@ import { BarRow, Count, KText, Tag, clamp, useSpr } from "./motion";
 import { mbx } from "./transitions";
 import { MapScene, FlowScene, MapOverlay, FlowOverlay } from "./MapFlow";
 
+// decimals shown by a counter default to those in the value itself (5.3 -> "5.3", not "5")
+const decOf = (v: number) => (Number.isInteger(v) ? 0 : (String(v).split(".")[1] ?? "").length);
 export type Overlay =
   | { type: "title"; tag?: string; text: string; hl?: string[] }
   | { type: "kinetic"; text: string; hl?: string[]; sub?: string }
@@ -41,7 +43,7 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
     case "stat":
       return (
         <div style={box}>
-          <Count to={o.value} from={o.from ?? 0} pre={o.prefix ?? ""} suf={o.suffix ?? ""} dec={o.dec ?? 0} size={onFootage ? 210 : 260} color={acc} d={Math.min(60, at(0.35))} at={6} />
+          <Count to={o.value} from={o.from ?? 0} pre={o.prefix ?? ""} suf={o.suffix ?? ""} dec={o.dec ?? decOf(o.value)} size={onFootage ? 210 : 260} color={acc} d={Math.min(60, at(0.35))} at={6} />
           <div style={{ height: 12 }} />
           <KText words={o.label} size={onFootage ? 60 : 66} at={at(0.18)} maxW={1250} font={STYLE.labelBody ? "sans" : "serif"} weight={STYLE.labelBody ? 600 : 700} />
         </div>
@@ -53,7 +55,7 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
           <div style={{ display: "flex", gap: 120, marginTop: 30 }}>
             {o.items.map((it, i) => (
               <div key={i} style={{ opacity: clamp((f - 8 - i * 18) / 12) }}>
-                <Count to={it.value} pre={it.prefix ?? ""} suf={it.suffix ?? ""} dec={it.dec ?? 0} size={190} color={i === 0 ? T.teal : T.coral} at={8 + i * 18} d={45} />
+                <Count to={it.value} pre={it.prefix ?? ""} suf={it.suffix ?? ""} dec={it.dec ?? decOf(it.value)} size={190} color={i === 0 ? T.teal : T.coral} at={8 + i * 18} d={45} />
                 <div style={{ fontFamily: F.sans, fontWeight: 700, fontSize: 48, color: T.fg, marginTop: 10 }}>{it.label}</div>
               </div>
             ))}

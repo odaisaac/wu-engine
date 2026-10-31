@@ -110,7 +110,7 @@ export const MapScene: React.FC<{ o: MapOverlay; dur: number }> = ({ o, dur }) =
 /* ------------------------------------------------------------------ */
 
 export type FlowOverlay = { type: "flow"; title?: string; steps: { icon: IconName; label: string }[] };
-export type IconName = "river" | "dredger" | "ship" | "truck" | "mixer" | "building" | "glass" | "chip" | "road" | "recycle" | "rock" | "mine" | "wave" | "sand" | "hourglass";
+export type IconName = "river" | "dredger" | "ship" | "truck" | "mixer" | "building" | "glass" | "chip" | "road" | "recycle" | "rock" | "mine" | "wave" | "sand" | "hourglass" | "phone" | "drawer" | "home" | "shredder" | "fire" | "magnet" | "gold" | "wrench" | "store" | "dump";
 
 const ICONS: Record<IconName, React.ReactNode> = {
   river: <><path d="M10 30 C30 20 40 40 60 30 S90 20 90 20" /><path d="M10 55 C30 45 40 65 60 55 S90 45 90 45" /><path d="M10 80 C30 70 40 90 60 80 S90 70 90 70" /></>,
@@ -127,6 +127,16 @@ const ICONS: Record<IconName, React.ReactNode> = {
   mine: <><path d="M10 84 L36 44 L52 64 L64 50 L90 84 Z" /><path d="M24 30 L46 14 M30 20 L40 34" /></>,
   wave: <><path d="M8 60 C22 40 34 40 46 60 S70 80 84 56" /><path d="M84 56 C88 48 94 46 94 46" /><path d="M8 80 L94 80" /><path d="M20 40 C30 26 44 24 52 34" /></>,
   sand: <><circle cx="30" cy="60" r="6" /><circle cx="50" cy="48" r="6" /><circle cx="68" cy="62" r="6" /><circle cx="42" cy="72" r="5" /><circle cx="60" cy="78" r="5" /><circle cx="24" cy="80" r="4" /><circle cx="78" cy="80" r="4" /></>,
+  phone: <><rect x="30" y="8" width="40" height="84" rx="7" /><path d="M44 16h12" /><circle cx="50" cy="82" r="3" /><rect x="35" y="24" width="30" height="48" /></>,
+  drawer: <><rect x="12" y="20" width="76" height="66" rx="3" /><path d="M12 52h76" /><path d="M42 36h16M42 68h16" /><rect x="24" y="8" width="20" height="12" /></>,
+  home: <><path d="M12 48 L50 16 L88 48" /><path d="M22 40 L22 86 L78 86 L78 40" /><rect x="42" y="60" width="16" height="26" /></>,
+  shredder: <><rect x="14" y="16" width="72" height="34" rx="3" /><path d="M14 50 L86 50" /><path d="M24 50v36M36 50v30M48 50v38M60 50v28M72 50v34" /><path d="M30 28h40" /></>,
+  fire: <><path d="M50 10 C62 30 76 40 74 62 C72 80 60 90 50 90 C40 90 26 80 26 62 C26 46 38 40 40 26 C46 34 48 40 50 10 Z" /><path d="M50 56 C56 64 58 70 56 78 C54 84 46 84 44 78 C42 70 46 66 50 56 Z" /></>,
+  magnet: <><path d="M22 18 L22 54 C22 72 34 84 50 84 C66 84 78 72 78 54 L78 18" /><path d="M38 18 L38 54 C38 62 44 68 50 68 C56 68 62 62 62 54 L62 18" /><path d="M22 18h16M62 18h16M22 30h16M62 30h16" /></>,
+  gold: <><path d="M10 82 L22 62 L48 62 L58 82 Z" /><path d="M42 82 L54 62 L80 62 L90 82 Z" /><path d="M26 58 L38 38 L64 38 L74 58 Z" /><path d="M70 14 L72 22 L80 24 L72 26 L70 34 L68 26 L60 24 L68 22 Z" /></>,
+  wrench: <><path d="M62 12 C50 12 42 22 44 34 L14 64 C10 68 10 76 14 80 C18 84 26 84 30 80 L60 50 C72 52 82 44 82 32 L72 40 L62 36 L60 26 L70 16 C68 13 65 12 62 12 Z" /></>,
+  store: <><path d="M12 36 L20 14 L80 14 L88 36 Z" /><path d="M12 36 C12 44 24 44 26 36 C28 44 40 44 42 36 C44 44 56 44 58 36 C60 44 72 44 74 36 C76 44 88 44 88 36" /><path d="M18 44 L18 86 L82 86 L82 44" /><rect x="40" y="60" width="20" height="26" /></>,
+  dump: <><path d="M8 86 L22 58 L34 66 L46 44 L60 60 L72 50 L92 86 Z" /><rect x="40" y="30" width="12" height="18" rx="2" transform="rotate(-20 46 39)" /><rect x="60" y="34" width="16" height="10" transform="rotate(15 68 39)" /><path d="M26 24 C30 18 34 18 36 12 M70 22 C74 16 78 16 80 10" /></>,
   hourglass: <><path d="M24 10 L76 10 M24 90 L76 90" /><path d="M30 10 C30 40 70 40 70 10 M30 90 C30 60 70 60 70 90" /><path d="M30 10 C30 36 48 46 50 50 C52 46 70 36 70 10" /><path d="M50 50 L50 78" /></>,
 };
 
