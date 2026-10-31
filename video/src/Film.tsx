@@ -76,7 +76,7 @@ const Intro: React.FC<{ s: Shot; dur: number }> = ({ s, dur }) => {
 const capCss = (): React.CSSProperties => {
   const base: React.CSSProperties = { fontFamily: STYLE.name === "tech" ? F.mono : F.sans, fontWeight: 600, fontSize: 38, lineHeight: 1.35, color: STYLE.captionFg };
   switch (STYLE.caption) {
-    case "shadow": return { ...base, fontWeight: 600, fontSize: 40, textShadow: "0 2px 6px #000, 0 0 22px #000C" };
+    case "shadow": return { ...base, fontWeight: 600, fontSize: 40, textShadow: "0 2px 6px #000, 0 0 22px #000C", background: "rgba(8,6,6,0.5)", padding: "6px 22px", borderRadius: 6 }; // soft backing keeps it readable on light scenes
     case "highlight": return { ...base, fontWeight: 800, fontSize: 40, background: STYLE.captionBg, padding: "4px 16px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", lineHeight: 1.5 };
     case "pill": return { ...base, fontWeight: 600, background: STYLE.captionBg, padding: "10px 30px", borderRadius: 999, boxShadow: "0 8px 24px #0004" };
     case "edge": return { ...base, fontWeight: 500, fontSize: 34, background: STYLE.captionBg, padding: "10px 24px", borderLeft: `6px solid ${STYLE.accent}`, borderRadius: 4 };
