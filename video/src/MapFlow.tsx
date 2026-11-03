@@ -110,7 +110,7 @@ export const MapScene: React.FC<{ o: MapOverlay; dur: number }> = ({ o, dur }) =
 /* ------------------------------------------------------------------ */
 
 export type FlowOverlay = { type: "flow"; title?: string; steps: { icon: IconName; label: string }[] };
-export type IconName = "river" | "dredger" | "ship" | "truck" | "mixer" | "building" | "glass" | "chip" | "road" | "recycle" | "rock" | "mine" | "wave" | "sand" | "hourglass" | "phone" | "drawer" | "home" | "shredder" | "fire" | "magnet" | "gold" | "wrench" | "store" | "dump" | "eye" | "ad" | "money" | "heart" | "brain" | "bell" | "star" | "hand" | "share" | "repeat";
+export type IconName = "river" | "dredger" | "ship" | "truck" | "mixer" | "building" | "glass" | "chip" | "road" | "recycle" | "rock" | "mine" | "wave" | "sand" | "hourglass" | "phone" | "drawer" | "home" | "shredder" | "fire" | "magnet" | "gold" | "wrench" | "store" | "dump" | "eye" | "ad" | "money" | "heart" | "brain" | "bell" | "star" | "hand" | "share" | "repeat" | "wheat" | "factory" | "warehouse" | "cart" | "fuel" | "sun" | "tractor" | "bin";
 
 const ICONS: Record<IconName, React.ReactNode> = {
   river: <><path d="M10 30 C30 20 40 40 60 30 S90 20 90 20" /><path d="M10 55 C30 45 40 65 60 55 S90 45 90 45" /><path d="M10 80 C30 70 40 90 60 80 S90 70 90 70" /></>,
@@ -147,6 +147,14 @@ const ICONS: Record<IconName, React.ReactNode> = {
   hand: <><path d="M38 52 L38 20 C38 14 46 14 46 20 L46 46 M46 40 C46 34 54 34 54 40 L54 46 M54 42 C54 36 62 36 62 42 L62 48 M62 46 C62 40 70 40 70 46 L70 64 C70 80 60 90 46 90 C36 90 30 84 26 76 L16 58 C14 52 20 48 26 52 L38 62" /></>,
   share: <><circle cx="26" cy="50" r="10" /><circle cx="74" cy="24" r="10" /><circle cx="74" cy="76" r="10" /><path d="M35 45 L65 29 M35 55 L65 71" /></>,
   repeat: <><path d="M20 44 C20 28 32 20 46 20 L76 20" /><path d="M66 10 L78 20 L66 30" /><path d="M80 56 C80 72 68 80 54 80 L24 80" /><path d="M34 70 L22 80 L34 90" /></>,
+  wheat: <><path d="M50 92 L50 22" /><path d="M50 30 C40 26 36 18 38 10 C46 14 50 20 50 30 Z M50 30 C60 26 64 18 62 10 C54 14 50 20 50 30 Z" /><path d="M50 50 C40 46 34 38 36 30 C44 34 50 40 50 50 Z M50 50 C60 46 66 38 64 30 C56 34 50 40 50 50 Z" /><path d="M50 70 C40 66 34 58 36 50 C44 54 50 60 50 70 Z M50 70 C60 66 66 58 64 50 C56 54 50 60 50 70 Z" /></>,
+  factory: <><path d="M10 88 L10 44 L32 56 L32 44 L54 56 L54 44 L76 56 L76 20 L90 20 L90 88 Z" /><path d="M22 72h8M42 72h8M62 72h8" /></>,
+  warehouse: <><path d="M8 40 L50 14 L92 40 L92 88 L8 88 Z" /><rect x="28" y="54" width="44" height="34" /><path d="M28 64h44M28 74h44" /></>,
+  cart: <><path d="M6 16 L20 16 L30 64 L80 64 L90 30 L24 30" /><circle cx="36" cy="80" r="7" /><circle cx="74" cy="80" r="7" /><path d="M40 42h40M44 52h32" /></>,
+  fuel: <><path d="M50 10 C38 30 24 44 24 62 C24 78 36 90 50 90 C64 90 76 78 76 62 C76 44 62 30 50 10 Z" /><path d="M40 66 C40 74 46 78 52 78" /></>,
+  sun: <><circle cx="50" cy="50" r="18" /><path d="M50 8v14M50 78v14M8 50h14M78 50h14M20 20l10 10M70 70l10 10M80 20L70 30M30 70L20 80" /></>,
+  tractor: <><circle cx="30" cy="68" r="20" /><circle cx="30" cy="68" r="6" /><circle cx="78" cy="76" r="12" /><path d="M48 62 L48 30 L72 30 L80 56 L90 58 L90 72" /><path d="M48 30 L36 30 L36 48" /><path d="M58 30 L58 18" /></>,
+  bin: <><path d="M18 26 L82 26" /><path d="M40 26 L42 14 L58 14 L60 26" /><path d="M24 26 L30 90 L70 90 L76 26" /><path d="M42 40 L44 78M58 40 L56 78" /></>,
   hourglass: <><path d="M24 10 L76 10 M24 90 L76 90" /><path d="M30 10 C30 40 70 40 70 10 M30 90 C30 60 70 60 70 90" /><path d="M30 10 C30 36 48 46 50 50 C52 46 70 36 70 10" /><path d="M50 50 L50 78" /></>,
 };
 
