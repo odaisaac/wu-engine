@@ -83,7 +83,7 @@ else:
     (P if 0.4 <= r <= 0.65 else W)(f"subscribe at {r:.0%} of runtime" + ("" if 0.4 <= r <= 0.65 else " — move to 40–65%"))
 # practical / hopeful ending
 tail = " ".join(s.get("text", "") for s in S if starts[s["id"]] > total * 0.7).lower()
-(P if re.search(r"\b(you can|what helps|solution|plan|try|change|protect|reclaim|take back)\b", tail) else W)("practical/hopeful section in the last 30%")
+(P if re.search(r"\b(you can|what helps|solution|plan|try|change|protect|reclaim|take back|recover|save|refill|fix|hope)\b", tail) else W)("practical/hopeful section in the last 30%")
 
 score = max(0, 100 - 8 * len(warn))
 print(f"PLAN CHECK {os.path.basename(os.path.abspath(film))}: {score}/100  ({total / 60:.1f} min, {len(S)} shots)")

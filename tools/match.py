@@ -61,9 +61,12 @@ def score(film, shots, cand):
                 try:
                     fetch(c["thumb"], p)
                 except Exception:
-                    if c["kind"] != "image" or not c.get("url"):
+                    if c["src"] == "pexels" and c["thumb"].endswith("preview-0.jpg"):
+                        fetch(c["thumb"].replace("preview-0.jpg", "preview-0.jpeg"), p)   # pexels uses either extension
+                    elif c["kind"] != "image" or not c.get("url"):
                         raise
-                    fetch(c["url"], p)            # some Openverse thumbs fail: use the original
+                    else:
+                        fetch(c["url"], p)            # some Openverse thumbs fail: use the original
                 im = Image.open(p).convert("RGB"); im.thumbnail((640, 640)); imgs.append(im); keep.append(c)
             except Exception as e:
                 c["score"] = -1; print("  thumb fail", c["src"], c["id"][:40], e)

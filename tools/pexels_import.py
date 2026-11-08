@@ -21,7 +21,7 @@ for r in json.load(open(src)):
     lst = cand.setdefault(sid, [])
     if any(c["src"] == "pexels" and c["id"] == str(r["mediaId"]) for c in lst):
         continue
-    lst.append(dict(src="pexels", id=str(r["mediaId"]), kind="video", title=r.get("title", ""), thumb=(r.get("thumbnailUrl") or "").replace("w=750", "w=640"),
+    lst.append(dict(src="pexels", id=str(r["mediaId"]), kind="video", title=r.get("title", ""), thumb=(r.get("thumbnailUrl") or f"https://images.pexels.com/videos/{r['mediaId']}/pictures/preview-0.jpg").replace("w=750", "w=640"),
                     url=r.get("url"), license="Pexels License", credit=f"Pexels · video {r['mediaId']}", page=f"https://www.pexels.com/video/{r['mediaId']}/", query=r.get("query")))
     n += 1
 json.dump(cand, open(cp, "w"), indent=1)

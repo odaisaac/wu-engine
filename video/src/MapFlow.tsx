@@ -110,7 +110,7 @@ export const MapScene: React.FC<{ o: MapOverlay; dur: number }> = ({ o, dur }) =
 /* ------------------------------------------------------------------ */
 
 export type FlowOverlay = { type: "flow"; title?: string; steps: { icon: IconName; label: string }[] };
-export type IconName = "river" | "dredger" | "ship" | "truck" | "mixer" | "building" | "glass" | "chip" | "road" | "recycle" | "rock" | "mine" | "wave" | "sand" | "hourglass" | "phone" | "drawer" | "home" | "shredder" | "fire" | "magnet" | "gold" | "wrench" | "store" | "dump" | "eye" | "ad" | "money" | "heart" | "brain" | "bell" | "star" | "hand" | "share" | "repeat" | "wheat" | "factory" | "warehouse" | "cart" | "fuel" | "sun" | "tractor" | "bin";
+export type IconName = "river" | "dredger" | "ship" | "truck" | "mixer" | "building" | "glass" | "chip" | "road" | "recycle" | "rock" | "mine" | "wave" | "sand" | "hourglass" | "phone" | "drawer" | "home" | "shredder" | "fire" | "magnet" | "gold" | "wrench" | "store" | "dump" | "eye" | "ad" | "money" | "heart" | "brain" | "bell" | "star" | "hand" | "share" | "repeat" | "wheat" | "factory" | "warehouse" | "cart" | "fuel" | "sun" | "tractor" | "bin" | "rain" | "well" | "drop" | "layers";
 
 const ICONS: Record<IconName, React.ReactNode> = {
   river: <><path d="M10 30 C30 20 40 40 60 30 S90 20 90 20" /><path d="M10 55 C30 45 40 65 60 55 S90 45 90 45" /><path d="M10 80 C30 70 40 90 60 80 S90 70 90 70" /></>,
@@ -155,6 +155,10 @@ const ICONS: Record<IconName, React.ReactNode> = {
   sun: <><circle cx="50" cy="50" r="18" /><path d="M50 8v14M50 78v14M8 50h14M78 50h14M20 20l10 10M70 70l10 10M80 20L70 30M30 70L20 80" /></>,
   tractor: <><circle cx="30" cy="68" r="20" /><circle cx="30" cy="68" r="6" /><circle cx="78" cy="76" r="12" /><path d="M48 62 L48 30 L72 30 L80 56 L90 58 L90 72" /><path d="M48 30 L36 30 L36 48" /><path d="M58 30 L58 18" /></>,
   bin: <><path d="M18 26 L82 26" /><path d="M40 26 L42 14 L58 14 L60 26" /><path d="M24 26 L30 90 L70 90 L76 26" /><path d="M42 40 L44 78M58 40 L56 78" /></>,
+  rain: <><path d="M26 52 C12 52 10 34 24 32 C26 18 46 14 52 26 C62 18 78 24 76 38 C88 40 88 52 76 52 Z" /><path d="M34 64 L30 76M50 64 L46 76M66 64 L62 76M42 80 L38 92M58 80 L54 92" /></>,
+  well: <><path d="M20 40 L80 40 M24 40 L24 90 M76 40 L76 90 M20 90 L80 90" /><path d="M50 40 L50 60" /><path d="M30 26 L50 12 L70 26 Z" /><path d="M44 60 h12 v10 h-12 Z" /><path d="M24 76 C40 72 60 80 76 76" /></>,
+  drop: <><path d="M50 10 C38 32 24 46 24 62 C24 78 36 90 50 90 C64 90 76 78 76 62 C76 46 62 32 50 10 Z" /><path d="M36 64 C36 74 42 80 50 80" /></>,
+  layers: <><path d="M8 30 C30 22 70 38 92 30" /><path d="M8 48 C30 40 70 56 92 48" /><path d="M8 66 C30 58 70 74 92 66" /><circle cx="30" cy="57" r="3" /><circle cx="50" cy="59" r="3" /><circle cx="70" cy="56" r="3" /><circle cx="40" cy="76" r="3" /><circle cx="62" cy="77" r="3" /><path d="M8 84 L92 84" /></>,
   hourglass: <><path d="M24 10 L76 10 M24 90 L76 90" /><path d="M30 10 C30 40 70 40 70 10 M30 90 C30 60 70 60 70 90" /><path d="M30 10 C30 36 48 46 50 50 C52 46 70 36 70 10" /><path d="M50 50 L50 78" /></>,
 };
 
