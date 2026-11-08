@@ -8,3 +8,4 @@ video/src/timing.json
 *.wav
 __pycache__/
 video/public/thumb_*.jpg
+assets/sfx/*.mp3

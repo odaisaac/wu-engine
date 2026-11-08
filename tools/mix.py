@@ -43,6 +43,8 @@ off = music_offset(music) if mstart == "auto" else float(mstart)
 subprocess.run(["ffmpeg", "-y", "-v", "error", "-stream_loop", "20", "-ss", f"{off:.2f}", "-i", music, "-t", f"{total:.2f}", "-af", f"volume={gain:.1f}dB,afade=t=in:d=3,afade=t=out:st={total-8:.2f}:d=8", f"{film}/music_bed.wav"], check=True)
 # ---- sound design layer
 events = []
+if use_sfx and not __import__("os").path.exists(f"{SFX}/whoosh.mp3"):
+    subprocess.run(["bash", f"{SFX}/make_sfx.sh"], check=True)   # kit is generated, not stored
 if use_sfx:
     MOTION = {"whip", "push", "punch", "glitch", "split", "bar", "rise"}
     prev = None
