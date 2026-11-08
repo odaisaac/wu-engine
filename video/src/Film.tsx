@@ -12,6 +12,8 @@ import timing from "./timing.json";
 
 type Shot = { id: string; text?: string; kind?: "footage" | "photo" | "graphic" | "subscribe" | "endcard" | "intro"; overlay?: Overlay; look?: string; act?: { label: string; title: string }; source?: string; transition?: "fade" | "bar" | "iris" | "rise" | "split"; title?: string };
 const SHOTS = (spec as { shots: Shot[] }).shots;
+/** true inside the vertical Short: footage overlays are hidden (the Short draws its own big captions). */
+export const ShortMode = React.createContext(false);
 const LOOKS = STYLE.looks;
 const FOOT: Theme = { ...THEMES.night, amber: STYLE.accent, fg: "#FFFFFF", dim: "#D5DCE6", panel: "#0A0D14B3", line: "#FFFFFF33" };
 const lookOf = (s: Shot, i: number) => THEMES[s.look ?? LOOKS[i % LOOKS.length]] ?? THEMES.night;
@@ -32,7 +34,7 @@ const Footage: React.FC<{ s: Shot; dur: number; i: number }> = ({ s, dur, i }) =
       </AbsoluteFill>
       {STYLE.tint ? <AbsoluteFill style={{ background: STYLE.tint, mixBlendMode: "soft-light", opacity: 0.55 }} /> : null}
       <AbsoluteFill style={{ background: heavy ? "linear-gradient(90deg, #05070CE6 0%, #05070CB3 40%, #05070C33 75%, #05070C1A 100%)" : "linear-gradient(0deg, #05070C99 0%, transparent 35%)" }} />
-      <ThemeCtx.Provider value={FOOT}>{s.overlay ? <OverlayView o={s.overlay} dur={dur} onFootage /> : null}</ThemeCtx.Provider>
+      <ThemeCtx.Provider value={FOOT}>{s.overlay && !React.useContext(ShortMode) ? <OverlayView o={s.overlay} dur={dur} onFootage /> : null}</ThemeCtx.Provider>
     </AbsoluteFill>
   );
 };
@@ -103,19 +105,39 @@ export const chunkText = (text: string): string[] => {
   return out.map((c) => c.join(" "));
 };
 
-const Caption: React.FC<{ text: string; dur: number }> = ({ text, dur }) => {
+type Word = [string, number, number];
+/** Chunks with word ranges, so exact word timings (tools/words.py) can drive them. */
+export const chunkWords = (text: string): number[][] => {
+  const chunks = chunkText(text); let k = 0;
+  return chunks.map((c) => { const n = c.split(/\s+/).length; const r = [k, k + n]; k += n; return r; });
+};
+const WORD_HL = (spec as { captionWords?: boolean }).captionWords === true;
+
+const Caption: React.FC<{ text: string; dur: number; words?: Word[] }> = ({ text, dur, words }) => {
   const f = useCurrentFrame();
   const chunks = React.useMemo(() => chunkText(text), [text]);
-  const weights = chunks.map((c) => c.length + 12);
-  const total = weights.reduce((a, b) => a + b, 0);
-  const speak = Math.max(1, dur - 18); // vo ends ~0.6s before the shot does
-  let acc = 0, idx = chunks.length - 1, local = 0;
-  for (let i = 0; i < chunks.length; i++) { const len = (weights[i] / total) * speak; if (f < acc + len) { idx = i; local = f - acc; break; } acc += len; }
+  const ranges = React.useMemo(() => chunkWords(text), [text]);
+  let idx = chunks.length - 1, local = 0;
+  if (words && words.length === text.split(/\s+/).filter(Boolean).length) {
+    // exact timing: a chunk appears when its first word is spoken (2 frames early)
+    idx = 0;
+    for (let i = 0; i < ranges.length; i++) if (f >= words[ranges[i][0]][1] - 2) idx = i;
+    local = f - (words[ranges[idx][0]][1] - 2);
+  } else {
+    const weights = chunks.map((c) => c.length + 12);
+    const total = weights.reduce((a, b) => a + b, 0);
+    const speak = Math.max(1, dur - 18); // vo ends ~0.6s before the shot does
+    let acc = 0;
+    for (let i = 0; i < chunks.length; i++) { const len = (weights[i] / total) * speak; if (f < acc + len) { idx = i; local = f - acc; break; } acc += len; }
+  }
   const fade = clamp(f / 6) * (1 - clamp((f - (dur - 6)) / 6));
   const pop = idx === 0 ? 1 : clamp(local / 4);
+  const ws = chunks[idx].split(/\s+/);
   return (
     <div style={{ position: "absolute", left: STYLE.caption === "bar" ? 0 : 160, right: STYLE.caption === "bar" ? 0 : 160, bottom: STYLE.caption === "bar" ? 0 : 50, textAlign: "center", opacity: fade }}>
-      <span style={{ ...capCss(), display: STYLE.caption === "bar" ? "block" : "inline", opacity: 0.4 + 0.6 * pop }}>{chunks[idx]}</span>
+      <span style={{ ...capCss(), display: STYLE.caption === "bar" ? "block" : "inline", opacity: 0.4 + 0.6 * pop }}>
+        {WORD_HL && words ? ws.map((w, j) => { const W = words[ranges[idx][0] + j]; const on = W && f >= W[1] - 1; return <span key={j} style={{ color: on ? STYLE.captionFg : `${STYLE.captionFg}88`, transition: "none" }}>{w}{j < ws.length - 1 ? " " : ""}</span>; }) : chunks[idx]}
+      </span>
     </div>
   );
 };
@@ -149,7 +171,7 @@ const Finish: React.FC = () => {
 const SHOW_ACTS = (spec as { showActs?: boolean }).showActs === true;
 const BG = (j: number) => bgOf(SHOTS[j], j);
 
-export const Film: React.FC = () => (
+export const FilmBody: React.FC<{ captions?: boolean }> = ({ captions = true }) => (
   <AbsoluteFill style={{ background: "#000" }}>
     <MBDefs />
     {timing.shots.map((t, i) => {
@@ -163,11 +185,13 @@ export const Film: React.FC = () => (
             {s.source ? <SourceTag text={s.source} /> : null}
           </Mover>
           <TransFX i={i} dur={t.dur} shots={SHOTS} bg={BG} />
-          {s.text && k !== "endcard" && k !== "subscribe" ? <Caption text={s.text} dur={t.dur} /> : null}
+          {captions && s.text && k !== "endcard" && k !== "subscribe" ? <Caption text={s.text} dur={t.dur} words={(t as { words?: Word[] }).words} /> : null}
         </Sequence>
       );
     })}
     <Finish />
   </AbsoluteFill>
 );
+export const Film: React.FC = () => <FilmBody />;
 export const TOTAL = timing.total;
+export const SHOT_LIST = SHOTS;

@@ -6,3 +6,5 @@ video/src/timing.json
 *.mp4
 *.m4a
 *.wav
+__pycache__/
+video/public/thumb_*.jpg
