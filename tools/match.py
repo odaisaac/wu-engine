@@ -7,13 +7,14 @@
 Reads FILM/candidates.json (tools/sources.py + tools/pexels_import.py), FILM/spec.json and FILM/timing.json.
 Scores = cosine(CLIP text, CLIP thumbnail) using openai/clip-vit-base-patch32 on CPU, with the shot's
 search phrases + kinetic line as the text. Already-used ids are skipped so one clip never repeats.
---apply downloads the top-k (video first; photos become 7 s Ken Burns clips), converts everything to
+--apply downloads the top clips (one per ~4.5 s of the shot, or --k; video first; photos become 7 s Ken Burns clips), converts everything to
 H.264 in FILM/stock/raw/<src>-<id>.mp4, writes FILM/files.json for build_spec.py, and records licences
 and credits in FILM/open_credits.json for the YouTube pack. Then run build_spec.py and stock.py as usual.
 """
 import argparse, hashlib, io, json, math, os, re, subprocess, sys, urllib.request
 sys.path.insert(0, os.path.dirname(__file__))
 from sources import resolve, UA  # noqa: E402
+from cues import clips_for  # noqa: E402
 
 MODEL = "openai/clip-vit-base-patch32"
 MIN = 0.24          # below this CLIP similarity a match is usually wrong — check the sheet instead
@@ -124,13 +125,14 @@ def apply(film, shots, cand, k, pins):
     files = json.load(open(fj_path)) if os.path.exists(fj_path) else {}
     creds = json.load(open(cr_path)) if os.path.exists(cr_path) else {}
     raw = os.path.join(film, "stock", "raw"); os.makedirs(raw, exist_ok=True)
+    cut = float(json.load(open(os.path.join(film, "spec.json"))).get("cutEvery", 4.5))
     used = {os.path.basename(p) for sid, v in files.items() for p in v if sid not in {s["id"] for s in shots}}
     for s in shots:
         cs = [c for c in cand.get(s["id"], []) if c.get("score", -1) >= MIN]
         want = pins.get(s["id"])
         if want:
             cs = [next(c for c in cand[s["id"]] if f"{c['src']}:{c['id']}" == w) for w in want]
-        n = k or (1 if timing.get(s["id"], {}).get("dur", 300) / 30 <= 9 else 2 if timing.get(s["id"], {}).get("dur", 0) / 30 <= 18 else 3)
+        n = k or clips_for(timing.get(s["id"], {}).get("dur", 270) / 30, cut)
         got, cr = [], []
         for c in cs:
             if len(got) >= n:

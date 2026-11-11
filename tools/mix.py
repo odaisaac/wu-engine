@@ -3,9 +3,12 @@
 Usage: mix.py FILM_DIR MUSIC.mp3 [--bed -31] [--lufs -14] [--mstart auto|SECONDS] [--sfx [--sfx-db -14]]  -> FILM/mix.m4a
 --mstart auto skips a quiet intro: the bed starts where the track first reaches its normal energy.
 --sfx adds the engine's subtle sound-design layer (assets/sfx): whoosh into graphic scenes and
-motion transitions, pop on stat/chart reveals, riser + impact into the title card, shutter on photos.
+motion transitions, pop on stat/chart reveals, riser + impact into the title card, shutter on photos,
+a tick on each overlay beat and a pop on the subscribe nudge.
 The finished mix is loudness-normalised (two-pass loudnorm) to --lufs, default -14 LUFS = YouTube's playback reference."""
-import json, re, subprocess, sys
+import json, os, re, subprocess, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cues import shot_beats  # noqa: E402
 film, music = sys.argv[1], sys.argv[2]
 bed = float(sys.argv[sys.argv.index("--bed") + 1]) if "--bed" in sys.argv else -31.0
 lufs = float(sys.argv[sys.argv.index("--lufs") + 1]) if "--lufs" in sys.argv else -14.0
@@ -62,6 +65,10 @@ if use_sfx:
             events += [("tick.mp3", at + 0.9 + 0.55 * j, -4) for j in range(n)]
         if k == "photo":
             events.append(("shutter.mp3", at + 0.1, -4))
+        for fr in shot_beats(sp, sh)[1:-1]:          # each new overlay beat inside the shot
+            events.append(("tick.mp3" if k != "graphic" else "pop.mp3", at + fr / 30, -6))
+        if sp.get("nudge"):
+            events.append(("pop.mp3", at + (24 + 65) / 30, -5))
         prev = k
 if events:
     sins, sfl = [], []

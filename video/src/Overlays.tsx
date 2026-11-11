@@ -30,7 +30,7 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
   const T = useTh();
   const f = useCurrentFrame();
   const at = (p: number) => Math.round(dur * p);
-  const box: React.CSSProperties = onFootage ? { position: "absolute", left: 90, top: 110, maxWidth: 1100 } : { position: "absolute", left: 130, right: 130, top: 0, bottom: 120, display: "flex", flexDirection: "column", justifyContent: "center" };
+  const box: React.CSSProperties = onFootage ? { position: "absolute", left: 90, top: 110, maxWidth: 1180, textShadow: "0 3px 18px #000B, 0 1px 3px #000C" } : { position: "absolute", left: 130, right: 130, top: 0, bottom: 120, display: "flex", flexDirection: "column", justifyContent: "center" };
   const acc = T.amber;
   switch (o.type) {
     case "none": return null;
@@ -39,7 +39,7 @@ export const OverlayView: React.FC<{ o: Overlay; dur: number; onFootage: boolean
     case "title":
       return <div style={{ ...box, ...(onFootage ? { top: 330 } : {}) }}>{o.tag ? <Tag at={6} color={acc} size={30}>{o.tag}</Tag> : null}<div style={{ height: 22 }} /><KText words={words(o.text, o.hl, acc)} size={onFootage ? 110 : 128} at={12} font="sans" weight={900} stagger={4} /></div>;
     case "kinetic":
-      return <div style={box}><KText words={words(o.text, o.hl, acc)} size={onFootage ? 88 : 112} at={Math.min(at(0.08), 8)} />{o.sub ? <Sub at={at(0.45)}>{o.sub}</Sub> : null}</div>;
+      return <div style={box}><KText words={words(o.text, o.hl, acc)} size={onFootage ? 104 : 118} at={Math.min(at(0.08), 6)} stagger={3} />{o.sub ? <Sub at={at(0.45)}>{o.sub}</Sub> : null}</div>;
     case "stat":
       return (
         <div style={box}>

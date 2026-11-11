@@ -16,7 +16,7 @@ export type Seg = { from: number; to: number };
 export type ShortProps = { segs: Seg[]; hook: string; title?: string; cta?: string; hl?: string };
 const END = 75; // end card frames
 type T = { id: string; start: number; dur: number; words?: [string, number, number][] };
-const TS = (timing as { shots: T[] }).shots;
+const TS = (timing as unknown as { shots: T[] }).shots;
 const KIND: Record<string, string> = Object.fromEntries((spec as { shots: { id: string; kind?: string }[] }).shots.map((s) => [s.id, s.kind ?? "graphic"]));
 const shotAt = (g: number) => TS.find((t) => g >= t.start && g < t.start + t.dur) ?? TS[TS.length - 1];
 

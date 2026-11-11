@@ -2,13 +2,16 @@
 """Find, download and normalise stock footage/photos for each shot.
 Usage: PIXABAY_KEY=... [PEXELS_KEY=...] stock.py FILM_DIR [--only 03,04] [--redo]
 Shots with kind "footage" or "photo" need a "query" (string or list of strings).
+The picture cuts every ~4.5 s (spec "cutEvery"): a shot gets ceil(length / 4.5) clips, and a clip is re-used with a punch-in if there are too few.
 Output: FILM/stock/<id>.mp4 (1920x1080, 30fps, exact shot length, no audio) or <id>.jpg, plus credits.json."""
 import json, os, subprocess, sys, urllib.parse, urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cues import clips_for  # noqa: E402
 
 film = sys.argv[1]
 only = set(sys.argv[sys.argv.index("--only") + 1].split(",")) if "--only" in sys.argv else None
 redo = "--redo" in sys.argv
-spec = json.load(open(f"{film}/spec.json")); timing = {t["id"]: t for t in json.load(open(f"{film}/timing.json"))["shots"]}
+spec = json.load(open(f"{film}/spec.json")); CUT = float(spec.get("cutEvery", 4.5)); timing = {t["id"]: t for t in json.load(open(f"{film}/timing.json"))["shots"]}
 os.makedirs(f"{film}/stock/raw", exist_ok=True)
 cred_path = f"{film}/stock/credits.json"
 credits = json.load(open(cred_path)) if os.path.exists(cred_path) else {}
@@ -82,15 +85,24 @@ def photo_candidates(q):
         except Exception as e: print("pixabay error", e)
     return out
 
-def norm(parts, secs, out):
-    """Cut the clips into equal segments covering secs, scale/crop to 1920x1080@30, concat."""
-    n = len(parts); seg = secs / n; tmp = []
-    for i, (path, dur) in enumerate(parts):
+def norm(parts, secs, out, want=None):
+    """Cut the clips into equal segments covering secs, scale/crop to 1920x1080@30, concat.
+    The picture changes every ~CUT seconds: when there are fewer clips than cuts, a clip is used again
+    from a later moment with a punch-in, so it reads as a new angle rather than a repeat."""
+    want = max(want or clips_for(secs, CUT), len(parts))
+    segs = [(p, d, 0) for p, d in parts]
+    k = 0
+    while len(segs) < want:
+        p, d = parts[k % len(parts)]; segs.append((p, d, 1 + k // len(parts))); k += 1
+    n = len(segs); seg = secs / n; tmp = []
+    for i, (path, dur, var) in enumerate(segs):
         speed = min(1.0, dur / seg)  # slow clips slightly if they are short
         take = min(dur, seg * speed)
-        ss = max(0.0, (dur - take) / 2)
+        reused = sum(1 for q in segs if q[0] == path) > 1
+        ss = max(0.0, (dur - take) / 2) if not reused else max(0.0, min(dur - take, dur * (0.08 if var == 0 else 0.5 + 0.2 * (var - 1))))
+        zoom = "" if var == 0 else f"scale=iw*{1.18 + 0.08 * (var - 1):.2f}:-2,crop=iw/{1.18 + 0.08 * (var - 1):.2f}:ih/{1.18 + 0.08 * (var - 1):.2f},"
         t = f"{out}.part{i}.mp4"
-        vf = f"setpts={1/speed:.4f}*PTS,scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,eq=contrast=1.06:saturation=1.12,format=yuv420p"
+        vf = f"setpts={1/speed:.4f}*PTS,{zoom}scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,eq=contrast=1.06:saturation=1.12,format=yuv420p"
         subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{ss:.2f}", "-t", f"{take:.2f}", "-i", path, "-vf", vf, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", t], check=True)
         tmp.append(t)
     lst = f"{out}.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(t)}'\n" for t in tmp))
@@ -136,11 +148,10 @@ for s in spec["shots"]:
             if k < len(by_src.get(src, [])): mixed.append(by_src[src][k])
     cands = sorted(mixed, key=lambda c: (c["w"] < 1920, c["dur"] < min(secs, 8)))
     pick, total = [], 0.0
-    max_clips = 1 if secs <= 9 else 2 if secs <= 18 else 3
+    max_clips = clips_for(secs, CUT)
     for c in cands:
         if len(pick) >= max_clips: break
         pick.append(c); total += c["dur"]
-        if total >= secs and len(pick) >= (1 if secs <= 9 else 2): break
     parts = []
     for c in pick:
         p = dl(c["url"], f"{film}/stock/raw/{c['src_id']}.mp4"); parts.append((p, c["dur"])); used.add(c["src_id"])

@@ -57,7 +57,7 @@ export const STYLES: Record<string, Style> = {
     display: FD.playfair, body: FD.inter, displayScale: 1, displayItalicOk: true,
     accent: "#FFB547", looks: ["paper", "volt", "sun", "coral", "mint", "night"], intro: "night", endcard: "night",
     trans: ["whip", "bar", "leak", "iris", "rise"], caption: "box", captionFg: "#F4ECDD", captionBg: "#05070CCC",
-    grade: "contrast(1.02)", grain: 0.06, vignette: 0.33, music: "hopeful cinematic piano/strings",
+    grade: "contrast(1.04) brightness(1.04)", grain: 0.05, vignette: 0.26, music: "hopeful cinematic piano/strings",
   },
   noir: {
     name: "noir", label: "Documentary Noir", bestFor: "true crime, scams, mysteries, investigations, dark history",

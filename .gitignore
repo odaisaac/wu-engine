@@ -9,3 +9,4 @@ video/src/timing.json
 __pycache__/
 video/public/thumb_*.jpg
 assets/sfx/*.mp3
+video/public/thumb_*.png

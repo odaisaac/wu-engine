@@ -3,14 +3,15 @@ import { AbsoluteFill, Easing, Img, OffthreadVideo, Sequence, interpolate, stati
 import { F, DS } from "./theme";
 import { STYLE } from "./styles";
 import { THEMES, ThemeCtx, Theme } from "./themes";
-import { Bg, Logo, KText, Tag, clamp, useSpr, IO, mix, Deco } from "./motion";
+import { Bg, Logo, KText, Tag, clamp, useSpr, IO, mix, Deco, Cam } from "./motion";
 import { OverlayView, Overlay } from "./Overlays";
-import { SubMid, EndCard } from "./Subscribe";
+import { SubMid, EndCard, SubNudge } from "./Subscribe";
 import { Mover, TransFX, MBDefs } from "./transitions";
 import spec from "./spec.json";
 import timing from "./timing.json";
 
-type Shot = { id: string; text?: string; kind?: "footage" | "photo" | "graphic" | "subscribe" | "endcard" | "intro"; overlay?: Overlay; look?: string; act?: { label: string; title: string }; source?: string; transition?: "fade" | "bar" | "iris" | "rise" | "split"; title?: string };
+type Shot = { id: string; text?: string; kind?: "footage" | "photo" | "graphic" | "subscribe" | "endcard" | "intro"; overlay?: Overlay; look?: string; act?: { label: string; title: string }; source?: string; transition?: "fade" | "bar" | "iris" | "rise" | "split"; title?: string; then?: (Overlay & { cue?: number })[]; nudge?: boolean };
+type Word = [string, number, number];
 const SHOTS = (spec as { shots: Shot[] }).shots;
 /** true inside the vertical Short: footage overlays are hidden (the Short draws its own big captions). */
 export const ShortMode = React.createContext(false);
@@ -18,26 +19,6 @@ const LOOKS = STYLE.looks;
 const FOOT: Theme = { ...THEMES.night, amber: STYLE.accent, fg: "#FFFFFF", dim: "#D5DCE6", panel: "#0A0D14B3", line: "#FFFFFF33" };
 const lookOf = (s: Shot, i: number) => THEMES[s.look ?? LOOKS[i % LOOKS.length]] ?? THEMES.night;
 const bgOf = (s: Shot | undefined, i: number) => !s ? "#0A0D14" : s.kind === "footage" || s.kind === "photo" ? "#0A0D14" : s.kind === "subscribe" ? THEMES.sun.bg : s.kind === "endcard" ? (THEMES[STYLE.endcard] ?? THEMES.night).bg : s.kind === "intro" ? (THEMES[STYLE.intro] ?? THEMES.night).bg : lookOf(s, i).bg;
-
-const Footage: React.FC<{ s: Shot; dur: number; i: number }> = ({ s, dur, i }) => {
-  const f = useCurrentFrame();
-  const t = IO(clamp(f / dur));
-  const isPhoto = s.kind === "photo";
-  const z = isPhoto ? mix(1.06, 1.18, t) : mix(1.0, 1.06, t);
-  const dx = isPhoto ? mix(i % 2 ? -30 : 30, i % 2 ? 30 : -30, t) : 0;
-  const heavy = s.overlay && s.overlay.type !== "lower" && s.overlay.type !== "none";
-  return (
-    <AbsoluteFill style={{ background: "#000" }}>
-      <AbsoluteFill style={{ transform: `scale(${z}) translateX(${dx}px)`, filter: STYLE.grade }}>
-        {isPhoto ? <Img src={staticFile(`film/stock/${s.id}.jpg`)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <OffthreadVideo src={staticFile(`film/stock/${s.id}.mp4`)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
-      </AbsoluteFill>
-      {STYLE.tint ? <AbsoluteFill style={{ background: STYLE.tint, mixBlendMode: "soft-light", opacity: 0.55 }} /> : null}
-      <AbsoluteFill style={{ background: heavy ? "linear-gradient(90deg, #05070CE6 0%, #05070CB3 40%, #05070C33 75%, #05070C1A 100%)" : "linear-gradient(0deg, #05070C99 0%, transparent 35%)" }} />
-      <ThemeCtx.Provider value={FOOT}>{s.overlay && !React.useContext(ShortMode) ? <OverlayView o={s.overlay} dur={dur} onFootage /> : null}</ThemeCtx.Provider>
-    </AbsoluteFill>
-  );
-};
 
 const ghostOf = (o?: Overlay): string | undefined => {
   if (!o) return undefined;
@@ -52,9 +33,82 @@ const ghostOf = (o?: Overlay): string | undefined => {
   }
 };
 
+/** Frame (shot-local) at which each narration sentence starts: exact when word timings exist, else by text position. */
+export const sentenceCues = (text: string | undefined, dur: number, words?: Word[]): number[] => {
+  const ws = (text ?? "").split(/\s+/).filter(Boolean);
+  if (!ws.length) return [0];
+  const starts = [0];
+  ws.forEach((w, i) => { if (/[.!?]["')\]]?$/.test(w) && i < ws.length - 1) starts.push(i + 1); });
+  if (words && words.length === ws.length) return starts.map((i) => words[i][1]);
+  const pos: number[] = []; let acc = 0; ws.forEach((w) => { pos.push(acc); acc += w.length + 1; });
+  return starts.map((i) => Math.round((pos[i] / acc) * Math.max(1, dur - 18)));
+};
+/** Where each overlay beat of a shot begins. Beats follow sentence starts (or an explicit "cue" sentence index); mirrored in tools/cues.py. */
+export const beatBounds = (n: number, cues: number[], dur: number, explicit: (number | undefined)[] = []): number[] => {
+  const b = [0]; const m = cues.length;
+  for (let k = 1; k < n; k++) {
+    const ci = explicit[k] ?? (m >= n ? Math.round((k * m) / n) : -1);
+    let fr = ci >= 0 && ci < m ? cues[ci] - 3 : Math.round((k * dur) / n);
+    fr = Math.min(Math.max(fr, b[k - 1] + 24), dur - 24);
+    b.push(fr);
+  }
+  b.push(dur);
+  return b;
+};
+const CueCtx = React.createContext<number[]>([0]);
+const wordsOf = (t: unknown) => (t as { words?: Word[] }).words;
+
+/** A shot's overlays in sequence: the main overlay, then each "then" beat, cut on the narration. */
+const Beats: React.FC<{ s: Shot; dur: number; onFootage: boolean; i: number }> = ({ s, dur, onFootage, i }) => {
+  const f = useCurrentFrame();
+  const cues = React.useContext(CueCtx);
+  const list = [s.overlay, ...(s.then ?? [])].filter(Boolean) as (Overlay & { cue?: number })[];
+  if (!list.length) return null;
+  const b = beatBounds(list.length, cues, dur, list.map((o) => o.cue));
+  let k = 0; for (let j = 0; j < list.length; j++) if (f >= b[j]) k = j;
+  const local = f - b[k];
+  const punch = k > 0 ? 1 + 0.035 * (1 - OUTQ(clamp(local / 9))) : 1;
+  const flash = k > 0 ? 0.22 * (1 - clamp(local / 5)) : 0;
+  return (
+    <>
+      {list.map((o, j) => (
+        <Sequence key={j} from={b[j]} durationInFrames={Math.max(1, b[j + 1] - b[j])} layout="none">
+          <AbsoluteFill style={{ transform: j === k ? `scale(${punch})` : undefined }}>
+            {!onFootage ? <Deco ghost={ghostOf(o)} dur={b[j + 1] - b[j]} seed={i + j} /> : null}
+            <OverlayView o={o} dur={b[j + 1] - b[j]} onFootage={onFootage} />
+          </AbsoluteFill>
+        </Sequence>
+      ))}
+      {flash > 0 ? <AbsoluteFill style={{ background: STYLE.accent, opacity: flash, mixBlendMode: "screen", pointerEvents: "none" }} /> : null}
+    </>
+  );
+};
+const OUTQ = Easing.out(Easing.cubic);
+
+const Footage: React.FC<{ s: Shot; dur: number; i: number }> = ({ s, dur, i }) => {
+  const f = useCurrentFrame();
+  const t = IO(clamp(f / dur));
+  const isPhoto = s.kind === "photo";
+  const z = isPhoto ? mix(1.06, 1.18, t) : mix(1.0, 1.06, t);
+  const dx = isPhoto ? mix(i % 2 ? -30 : 30, i % 2 ? 30 : -30, t) : 0;
+  const heavy = [s.overlay, ...(s.then ?? [])].some((o) => o && o.type !== "lower" && o.type !== "none");
+  return (
+    <AbsoluteFill style={{ background: "#000" }}>
+      <AbsoluteFill style={{ transform: `scale(${z}) translateX(${dx}px)`, filter: STYLE.grade }}>
+        {isPhoto ? <Img src={staticFile(`film/stock/${s.id}.jpg`)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <OffthreadVideo src={staticFile(`film/stock/${s.id}.mp4`)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+      </AbsoluteFill>
+      {STYLE.tint ? <AbsoluteFill style={{ background: STYLE.tint, mixBlendMode: "soft-light", opacity: 0.55 }} /> : null}
+      <AbsoluteFill style={{ background: heavy ? "linear-gradient(90deg, #05070CC4 0%, #05070C8C 38%, #05070C1F 72%, transparent 100%)" : "linear-gradient(0deg, #05070C99 0%, transparent 35%)" }} />
+      <ThemeCtx.Provider value={FOOT}>{s.overlay && !React.useContext(ShortMode) ? <Beats s={s} dur={dur} onFootage i={i} /> : null}</ThemeCtx.Provider>
+    </AbsoluteFill>
+  );
+};
+
+
 const Graphic: React.FC<{ s: Shot; dur: number; i: number }> = ({ s, dur, i }) => (
   <ThemeCtx.Provider value={lookOf(s, i)}>
-    <AbsoluteFill><Bg seed={i} /><Deco ghost={ghostOf(s.overlay)} dur={dur} seed={i} />{s.overlay ? <OverlayView o={s.overlay} dur={dur} onFootage={false} /> : null}</AbsoluteFill>
+    <AbsoluteFill><Bg seed={i} /><Cam dur={dur} z={[1, 1.035]}><Beats s={s} dur={dur} onFootage={false} i={i} /></Cam></AbsoluteFill>
   </ThemeCtx.Provider>
 );
 
@@ -76,18 +130,18 @@ const Intro: React.FC<{ s: Shot; dur: number }> = ({ s, dur }) => {
 };
 
 const capCss = (): React.CSSProperties => {
-  const base: React.CSSProperties = { fontFamily: STYLE.name === "tech" ? F.mono : F.sans, fontWeight: 600, fontSize: 38, lineHeight: 1.35, color: STYLE.captionFg };
+  const base: React.CSSProperties = { fontFamily: STYLE.name === "tech" ? F.mono : F.sans, fontWeight: 600, fontSize: 46, lineHeight: 1.3, color: STYLE.captionFg };
   switch (STYLE.caption) {
-    case "shadow": return { ...base, fontWeight: 600, fontSize: 40, textShadow: "0 2px 6px #000, 0 0 22px #000C", background: "rgba(8,6,6,0.5)", padding: "6px 22px", borderRadius: 6 }; // soft backing keeps it readable on light scenes
-    case "highlight": return { ...base, fontWeight: 800, fontSize: 40, background: STYLE.captionBg, padding: "4px 16px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", lineHeight: 1.5 };
+    case "shadow": return { ...base, fontWeight: 700, fontSize: 48, textShadow: "0 2px 6px #000, 0 0 22px #000C", background: "rgba(8,6,6,0.5)", padding: "6px 22px", borderRadius: 6 }; // soft backing keeps it readable on light scenes
+    case "highlight": return { ...base, fontWeight: 800, fontSize: 48, background: STYLE.captionBg, padding: "4px 16px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", lineHeight: 1.5 };
     case "pill": return { ...base, fontWeight: 600, background: STYLE.captionBg, padding: "10px 30px", borderRadius: 999, boxShadow: "0 8px 24px #0004" };
-    case "edge": return { ...base, fontWeight: 500, fontSize: 34, background: STYLE.captionBg, padding: "10px 24px", borderLeft: `6px solid ${STYLE.accent}`, borderRadius: 4 };
-    case "bar": return { ...base, background: STYLE.captionBg, borderTop: `5px solid ${STYLE.accent}`, padding: "14px 160px 18px", fontSize: 36 };
+    case "edge": return { ...base, fontWeight: 600, fontSize: 42, background: STYLE.captionBg, padding: "10px 24px", borderLeft: `6px solid ${STYLE.accent}`, borderRadius: 4 };
+    case "bar": return { ...base, background: STYLE.captionBg, borderTop: `5px solid ${STYLE.accent}`, padding: "14px 160px 18px", fontSize: 44 };
     default: return { ...base, background: STYLE.captionBg, padding: "8px 22px", borderRadius: 10 };
   }
 };
 
-/** Split narration into readable caption chunks: break on sentence/clause ends, ~4–9 words, never a 1–2 word orphan. */
+/** Split narration into readable caption chunks: break on sentence/clause ends, ~3–7 words, never a 1–2 word orphan. */
 export const chunkText = (text: string): string[] => {
   const words = text.split(/\s+/).filter(Boolean);
   const out: string[][] = []; let cur: string[] = [];
@@ -96,7 +150,7 @@ export const chunkText = (text: string): string[] => {
     const end = /[.!?]$/.test(w), clause = /[,;:—]$/.test(w);
     const left = words.length - i - 1;
     const weak = /^(a|an|the|to|of|and|or|in|on|for|with|at|by|from|that|their|his|her|its|is|was|it)$/i.test(w.replace(/[^\w]/g, ""));
-    if ((end && cur.length >= 3) || (clause && cur.length >= 5) || (cur.length >= 9 && !weak) || cur.length >= 12) {
+    if ((end && cur.length >= 3) || (clause && cur.length >= 4) || (cur.length >= 7 && !weak) || cur.length >= 9) {
       if (left > 0 && left <= 2) return; // keep the tail with this chunk
       out.push(cur); cur = [];
     }
@@ -105,7 +159,6 @@ export const chunkText = (text: string): string[] => {
   return out.map((c) => c.join(" "));
 };
 
-type Word = [string, number, number];
 /** Chunks with word ranges, so exact word timings (tools/words.py) can drive them. */
 export const chunkWords = (text: string): number[][] => {
   const chunks = chunkText(text); let k = 0;
@@ -179,13 +232,16 @@ export const FilmBody: React.FC<{ captions?: boolean }> = ({ captions = true }) 
       const k = s.kind ?? "graphic";
       return (
         <Sequence key={s.id} from={t.start} durationInFrames={t.dur} premountFor={30}>
+          <CueCtx.Provider value={sentenceCues(s.text, t.dur, wordsOf(t))}>
           <Mover i={i} dur={t.dur} shots={SHOTS} bg={BG}>
             {k === "footage" || k === "photo" ? <Footage s={s} dur={t.dur} i={i} /> : k === "subscribe" ? <SubMid dur={t.dur} /> : k === "endcard" ? <EndCard dur={t.dur} /> : k === "intro" ? <Intro s={s} dur={t.dur} /> : <Graphic s={s} dur={t.dur} i={i} />}
             {s.act && SHOW_ACTS ? <ActTag label={s.act.label} title={s.act.title} /> : null}
             {s.source ? <SourceTag text={s.source} /> : null}
           </Mover>
+          </CueCtx.Provider>
           <TransFX i={i} dur={t.dur} shots={SHOTS} bg={BG} />
-          {captions && s.text && k !== "endcard" && k !== "subscribe" ? <Caption text={s.text} dur={t.dur} words={(t as { words?: Word[] }).words} /> : null}
+          {s.nudge && captions ? <SubNudge /> : null}
+          {captions && s.text && k !== "endcard" && k !== "subscribe" ? <Caption text={s.text} dur={t.dur} words={wordsOf(t)} /> : null}
         </Sequence>
       );
     })}

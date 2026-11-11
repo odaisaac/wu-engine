@@ -93,3 +93,25 @@ export const EndCard: React.FC<{ dur: number }> = ({ dur }) => {
     </ThemeCtx.Provider>
   );
 };
+
+/** Corner subscribe prompt that plays over the running film (shot flag "nudge": true) — no full-screen pause. ~5 s. */
+export const SubNudge: React.FC<{ at?: number }> = ({ at = 24 }) => {
+  const f = useCurrentFrame() - at;
+  const inn = useSpr(at, { damping: 14, stiffness: 130 });
+  const clickF = 62;
+  const clicked = f >= clickF + 3;
+  const pop = useSpr(at + clickF + 3, { damping: 8, stiffness: 240 });
+  const out = clamp((f - 138) / 12);
+  const ring = f > clickF + 14 ? Math.sin((f - clickF - 14) / 2.2) * 20 * Math.max(0, 1 - (f - clickF - 14) / 44) : 0;
+  const cx = interpolate(f, [14, clickF], [330, 196], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.6, 0, 0.2, 1) });
+  const cy = interpolate(f, [14, clickF], [170, 64], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.6, 0, 0.2, 1) });
+  if (f < 0 || f > 152) return null;
+  return (
+    <div style={{ position: "absolute", right: 56, top: 48, opacity: clamp(inn * 2) * (1 - out), transform: `translateX(${(1 - inn) * 140 + out * 60}px) scale(1.25)`, transformOrigin: "100% 0", display: "flex", alignItems: "center", gap: 18, background: "#0A0D14E8", padding: "14px 22px 14px 14px", borderRadius: 999, boxShadow: "0 14px 40px #0008", border: "2px solid #FFFFFF22" }}>
+      <Logo size={78} />
+      <div style={{ transform: `scale(${clicked ? 1 + (pop - 1) * 0.12 : 1})`, background: clicked ? "#E4E4E4" : "#E62117", color: clicked ? "#15171E" : "#FFFFFF", fontFamily: F.sans, fontWeight: 900, fontSize: 34, letterSpacing: "0.04em", padding: "14px 30px", borderRadius: 999, minWidth: 250, textAlign: "center" }}>{clicked ? "✓ SUBSCRIBED" : "SUBSCRIBE"}</div>
+      <div style={{ opacity: clicked ? 1 : 0.35 }}><Bell s={54} color="#FFFFFF" rot={ring} /></div>
+      {f > 12 && f < clickF + 30 ? <svg viewBox="0 0 40 60" width={38} height={57} style={{ position: "absolute", left: cx, top: cy, transform: `scale(${f >= clickF && f < clickF + 7 ? 0.85 : 1})`, filter: "drop-shadow(0 4px 8px #0008)" }}><path d="M2 2 L2 46 L13 36 L21 56 L29 52 L21 33 L36 33 Z" fill="#FFFFFF" stroke="#15171E" strokeWidth={3} strokeLinejoin="round" /></svg> : null}
+    </div>
+  );
+};
