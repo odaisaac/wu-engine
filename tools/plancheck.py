@@ -9,7 +9,7 @@ Rules come from comparing our films with small-channel breakout documentaries (N
               no channel intro ("This is The World Unpacked…") and no full-screen logo card in the first minute
   title     — the title appears as an overlay on footage by ~0:45 (overlay type "title"), not as a logo card
   pace      — the picture changes every ~5 s on average; no footage hold over 6.5 s, no still graphic over 8 s
-              (add clips, or "then" overlay beats); shots of 45+ words are split
+              (add clips, or "then" overlay beats; a beat starts at "cue": sentence index or "on": spoken word); shots of 45+ words are split
   rehooks   — a question / "but" turn / reveal at least every ~75 s
   stakes    — the script speaks to the viewer ("you/your") at least ~1.5 times a minute
   language  — average sentence ≤ 17 words, none over 30
@@ -81,10 +81,11 @@ for s in S:
         ov = (s.get("overlay") or {})
         inner = len(ov.get("items") or ov.get("steps") or ov.get("points") or [1, 1]) if ov.get("type") in ANIM else 1
         n = max(beats, inner)
-        longest = max(b - a for a, b in zip(bounds, bounds[1:])) / fps
-        lim = 12 if ov.get("type") in ANIM and beats == 1 else 8
-        if longest > lim:
-            W(f"pace: graphic {s['id']} ({ov.get('type')}) sits for {longest:.0f}s — add a 'then' beat or split the shot (limit {lim}s)")
+        beats_ov = [o for o in [s.get("overlay")] + list(s.get("then") or []) if o] or [{}]
+        for o, a, b in zip(beats_ov, bounds, bounds[1:]):
+            lim = 12 if o.get("type") in ANIM else 8
+            if (b - a) / fps > lim + 0.5:
+                W(f"pace: graphic {s['id']} ({o.get('type')}) sits for {(b - a) / fps:.0f}s — add a 'then' beat or split the shot (limit {lim}s)")
     else:
         n = 2 if k == "subscribe" else 1
     units += n

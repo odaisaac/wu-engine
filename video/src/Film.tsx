@@ -10,7 +10,9 @@ import { Mover, TransFX, MBDefs } from "./transitions";
 import spec from "./spec.json";
 import timing from "./timing.json";
 
-type Shot = { id: string; text?: string; kind?: "footage" | "photo" | "graphic" | "subscribe" | "endcard" | "intro"; overlay?: Overlay; look?: string; act?: { label: string; title: string }; source?: string; transition?: "fade" | "bar" | "iris" | "rise" | "split"; title?: string; then?: (Overlay & { cue?: number })[]; nudge?: boolean };
+type Shot = { id: string; text?: string; kind?: "footage" | "photo" | "graphic" | "subscribe" | "endcard" | "intro"; overlay?: Overlay; look?: string; act?: { label: string; title: string }; source?: string; transition?: "fade" | "bar" | "iris" | "rise" | "split"; title?: string; then?: Beat[]; nudge?: boolean };
+/** An overlay beat: starts at sentence "cue" (0-based) or when the word "on" is spoken. */
+type Beat = Overlay & { cue?: number; on?: string };
 type Word = [string, number, number];
 const SHOTS = (spec as { shots: Shot[] }).shots;
 /** true inside the vertical Short: footage overlays are hidden (the Short draws its own big captions). */
@@ -43,28 +45,40 @@ export const sentenceCues = (text: string | undefined, dur: number, words?: Word
   const pos: number[] = []; let acc = 0; ws.forEach((w) => { pos.push(acc); acc += w.length + 1; });
   return starts.map((i) => Math.round((pos[i] / acc) * Math.max(1, dur - 18)));
 };
-/** Where each overlay beat of a shot begins. Beats follow sentence starts (or an explicit "cue" sentence index); mirrored in tools/cues.py. */
+/** Frame at which a given word is spoken ("on": "thirty-nine" → first word starting with it), or undefined. */
+export const wordFrame = (needle: string, text: string | undefined, dur: number, words?: Word[]): number | undefined => {
+  const ws = (text ?? "").split(/\s+/).filter(Boolean);
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const i = ws.findIndex((w) => norm(w).startsWith(norm(needle)));
+  if (i < 0) return undefined;
+  if (words && words.length === ws.length) return words[i][1];
+  let acc = 0; const pos = ws.map((w) => { const p = acc; acc += w.length + 1; return p; });
+  return Math.round((pos[i] / acc) * Math.max(1, dur - 18));
+};
+/** Where each overlay beat of a shot begins. A beat starts at its explicit frame ("on" word or "cue" sentence),
+ *  otherwise beats spread over the sentence starts; mirrored in tools/cues.py. */
 export const beatBounds = (n: number, cues: number[], dur: number, explicit: (number | undefined)[] = []): number[] => {
   const b = [0]; const m = cues.length;
   for (let k = 1; k < n; k++) {
-    const ci = explicit[k] ?? (m >= n ? Math.round((k * m) / n) : -1);
-    let fr = ci >= 0 && ci < m ? cues[ci] - 3 : Math.round((k * dur) / n);
+    const ci = m >= n ? Math.round((k * m) / n) : -1;
+    let fr = explicit[k] !== undefined ? (explicit[k] as number) - 3 : ci >= 0 && ci < m ? cues[ci] - 3 : Math.round((k * dur) / n);
     fr = Math.min(Math.max(fr, b[k - 1] + 24), dur - 24);
     b.push(fr);
   }
   b.push(dur);
   return b;
 };
-const CueCtx = React.createContext<number[]>([0]);
+type Cue = { sent: number[]; word: (needle: string) => number | undefined };
+const CueCtx = React.createContext<Cue>({ sent: [0], word: () => undefined });
 const wordsOf = (t: unknown) => (t as { words?: Word[] }).words;
 
 /** A shot's overlays in sequence: the main overlay, then each "then" beat, cut on the narration. */
 const Beats: React.FC<{ s: Shot; dur: number; onFootage: boolean; i: number }> = ({ s, dur, onFootage, i }) => {
   const f = useCurrentFrame();
-  const cues = React.useContext(CueCtx);
-  const list = [s.overlay, ...(s.then ?? [])].filter(Boolean) as (Overlay & { cue?: number })[];
+  const cue = React.useContext(CueCtx);
+  const list = [s.overlay, ...(s.then ?? [])].filter(Boolean) as Beat[];
   if (!list.length) return null;
-  const b = beatBounds(list.length, cues, dur, list.map((o) => o.cue));
+  const b = beatBounds(list.length, cue.sent, dur, list.map((o) => (o.on ? cue.word(o.on) : o.cue !== undefined ? cue.sent[o.cue] : undefined)));
   let k = 0; for (let j = 0; j < list.length; j++) if (f >= b[j]) k = j;
   const local = f - b[k];
   const punch = k > 0 ? 1 + 0.035 * (1 - OUTQ(clamp(local / 9))) : 1;
@@ -232,7 +246,7 @@ export const FilmBody: React.FC<{ captions?: boolean }> = ({ captions = true }) 
       const k = s.kind ?? "graphic";
       return (
         <Sequence key={s.id} from={t.start} durationInFrames={t.dur} premountFor={30}>
-          <CueCtx.Provider value={sentenceCues(s.text, t.dur, wordsOf(t))}>
+          <CueCtx.Provider value={{ sent: sentenceCues(s.text, t.dur, wordsOf(t)), word: (n) => wordFrame(n, s.text, t.dur, wordsOf(t)) }}>
           <Mover i={i} dur={t.dur} shots={SHOTS} bg={BG}>
             {k === "footage" || k === "photo" ? <Footage s={s} dur={t.dur} i={i} /> : k === "subscribe" ? <SubMid dur={t.dur} /> : k === "endcard" ? <EndCard dur={t.dur} /> : k === "intro" ? <Intro s={s} dur={t.dur} /> : <Graphic s={s} dur={t.dur} i={i} />}
             {s.act && SHOW_ACTS ? <ActTag label={s.act.label} title={s.act.title} /> : null}
