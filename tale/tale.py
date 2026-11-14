@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 FPS = 30
 W, H = 1920, 1080
-GAP = 0.45            # silence after each paragraph
+GAP = 0.75            # silence after each paragraph (speech is trimmed to its true end first)
 CHAPTER_GAP = 1.1     # extra silence before a new chapter
 FONT = "Inter"
 HL = "&H4DC9FF&"      # amber, ASS is BGR
@@ -27,6 +27,37 @@ def run(cmd, **kw):
 
 def dur_of(path):
     return float(run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path]).stdout.strip())
+
+
+def speech_end(path):
+    """Where the spoken words really end. ElevenLabs sometimes adds the start of a breath or of the
+    next word after a short silence at the end of a file; cut inside that silence so it is never heard."""
+    import numpy as np
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", "16000", "-f", "s16le", "-"], capture_output=True).stdout
+    x = np.frombuffer(raw, dtype=np.int16).astype(float) / 32768
+    n = len(x) // 160
+    if n < 30:
+        return len(x) / 16000
+    db = 20 * np.log10(np.sqrt((x[:n * 160].reshape(n, 160) ** 2).mean(axis=1) + 1e-12))
+    loud = db > -40
+    end, run, L = n, 0, None
+    for k in range(n):                                  # L = last frame of the last solid stretch of speech (120 ms or more)
+        run = run + 1 if loud[k] else 0
+        if run >= 12:
+            L = k
+    if L is None:
+        return n * 0.01
+    while L + 1 < n and loud[L + 1]:
+        L += 1
+    after = db[L + 1:]
+    q = 0; has_gap = False
+    for v in after:                                     # is there real silence (60 ms or more) after it?
+        q = q + 1 if v < -55 else 0
+        if q >= 6:
+            has_gap = True; break
+    if not has_gap:
+        return n * 0.01                                 # speech runs to the end of the file: keep everything
+    return min((L + 1) * 0.01 + 0.14, n * 0.01)
 
 
 def pick(only, n):
@@ -82,8 +113,7 @@ def vo(film, voice, only, speed):
             continue
         body = {"text": it["text"], "model_id": "eleven_multilingual_v2",
                 "voice_settings": {"stability": 0.55, "similarity_boost": 0.8, "style": 0.0, "speed": speed},
-                "previous_text": items[k - 1]["text"] if k else None,
-                "next_text": items[k + 1]["text"] if k + 1 < len(items) else None}
+                "previous_text": items[k - 1]["text"] if k else None}
         body = {a: b for a, b in body.items() if b is not None}
         req = urllib.request.Request(
             f"https://api.elevenlabs.io/v1/text-to-speech/{voice}/with-timestamps?output_format=mp3_44100_128",
@@ -254,12 +284,13 @@ def move_of(n, host):
     return "in" if host else MOVES[n % len(MOVES)]
 
 
-def render_clip(img, prev, n, host, frames, ass, audio, lead, clip):
+def render_clip(img, prev, n, host, frames, ass, audio, lead, clip, adur):
     import cv2
     src = load_src(img)
     last = frame_at(load_src(prev[0]), move_of(prev[1], prev[2]), 1.0) if prev else None
     esc = ass.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
-    afilt = (f"adelay={int(lead * 1000)}:all=1," if lead else "") + f"apad=whole_dur={frames / FPS:.4f}"
+    afilt = (f"atrim=end={adur:.3f},afade=t=out:st={max(0, adur - 0.06):.3f}:d=0.06,"
+             + (f"adelay={int(lead * 1000)}:all=1," if lead else "") + f"apad=whole_dur={frames / FPS:.4f}")
     p = subprocess.Popen(["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
                           "-i", audio, "-filter_complex", f"[0:v]subtitles='{esc}',format=yuv420p[v];[1:a]aresample=48000,{afilt}[a]",
                           "-map", "[v]", "-map", "[a]", "-frames:v", str(frames), "-t", f"{frames / FPS:.4f}", "-c:v", "libx264", "-preset", "veryfast",
@@ -294,7 +325,7 @@ def build(film, only, music, out, brand, workers):
     jobs, cues, t0 = [], [], 0.0
     for idx, n in enumerate(want):
         it = items[n - 1]
-        a = dur_of(f"{film}/vo/{n:03d}.mp3")
+        a = speech_end(f"{film}/vo/{n:03d}.mp3")
         lead = CHAPTER_GAP if (it["first"] and idx) else 0.0
         frames = round((lead + a + GAP) * FPS)
         pv = want[idx - 1] if idx else None
@@ -308,11 +339,11 @@ def build(film, only, music, out, brand, workers):
         align = json.load(open(aj)) if os.path.exists(aj) else None
         text = it["text"]
         write_ass(ass, text, align, a, it["chapter"] if it["first"] else None, brand, lead)
-        sig = f"v2|{frames}|{os.path.getmtime(find_img(film, n))}|{prev and os.path.getmtime(prev[0])}|{open(ass).read()}"
+        sig = f"v3|{a:.3f}|{frames}|{os.path.getmtime(find_img(film, n))}|{prev and os.path.getmtime(prev[0])}|{open(ass).read()}"
         sigf = clip + ".sig"
         if os.path.exists(clip) and os.path.exists(sigf) and open(sigf).read() == sig:
             return n
-        render_clip(find_img(film, n), prev, n, it['host'], frames, ass, f"{film}/vo/{n:03d}.mp3", lead, clip)
+        render_clip(find_img(film, n), prev, n, it['host'], frames, ass, f"{film}/vo/{n:03d}.mp3", lead, clip, a)
         open(sigf, "w").write(sig)
         return n
 
