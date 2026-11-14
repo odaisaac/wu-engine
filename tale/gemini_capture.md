@@ -26,3 +26,11 @@ Notes
   read through a canvas; the fetch hook in step 2 does not have that problem.
 - Add "fills the entire frame edge to edge, no border, no text" to prompts, and
   start a new chat when changing style: Gemini carries layout habits over.
+
+## Description footer (every Plain Tale English video)
+
+    🔹 Plain Tale English: Disclaimer & Copyright
+    This video is made for education and English language learning.
+    The script is original. The pictures are AI-made illustrations, not real paintings or photographs, and the narration is a computer voice. Historical facts are told in simple words and some details are shortened.
+    © Plain Tale English. All rights reserved.
+    No part of this video may be copied or re-uploaded without written permission.
