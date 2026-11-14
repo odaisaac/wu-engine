@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 FPS = 30
 W, H = 1920, 1080
-GAP = 0.75            # silence after each paragraph (speech is trimmed to its true end first)
+GAP = 0.70            # silence after each paragraph (speech is trimmed to its true end first)
 CHAPTER_GAP = 1.1     # extra silence before a new chapter
 FONT = "Inter"
 HL = "&H4DC9FF&"      # amber, ASS is BGR
@@ -322,7 +322,9 @@ def build(film, only, music, out, brand, workers):
     jobs, cues, t0 = [], [], 0.0
     for idx, n in enumerate(want):
         it = items[n - 1]
-        a = speech_end(f"{film}/vo/{n:03d}.mp3")
+        aj0 = f"{film}/vo/{n:03d}.json"
+        kok = os.path.exists(aj0) and json.load(open(aj0)).get("engine") == "kokoro"
+        a = dur_of(f"{film}/vo/{n:03d}.mp3") if kok else speech_end(f"{film}/vo/{n:03d}.mp3")   # only ElevenLabs files need the tail cut
         lead = CHAPTER_GAP if (it["first"] and idx) else 0.0
         frames = round((lead + a + GAP) * FPS)
         pv = want[idx - 1] if idx else None
