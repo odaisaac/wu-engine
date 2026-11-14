@@ -289,12 +289,9 @@ def render_clip(img, prev, n, host, frames, ass, audio, lead, clip, adur):
     src = load_src(img)
     last = frame_at(load_src(prev[0]), move_of(prev[1], prev[2]), 1.0) if prev else None
     esc = ass.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
-    afilt = (f"atrim=end={adur:.3f},afade=t=out:st={max(0, adur - 0.06):.3f}:d=0.06,"
-             + (f"adelay={int(lead * 1000)}:all=1," if lead else "") + f"apad=whole_dur={frames / FPS:.4f}")
     p = subprocess.Popen(["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-                          "-i", audio, "-filter_complex", f"[0:v]subtitles='{esc}',format=yuv420p[v];[1:a]aresample=48000,{afilt}[a]",
-                          "-map", "[v]", "-map", "[a]", "-frames:v", str(frames), "-t", f"{frames / FPS:.4f}", "-c:v", "libx264", "-preset", "veryfast",
-                          "-crf", "18", "-c:a", "aac", "-b:a", "192k", "-ac", "2", clip], stdin=subprocess.PIPE)
+                          "-vf", f"subtitles='{esc}',format=yuv420p", "-frames:v", str(frames), "-an", "-c:v", "libx264", "-preset", "veryfast",
+                          "-crf", "18", clip], stdin=subprocess.PIPE)
     mv = move_of(n, host)
     for f in range(frames):
         fr = frame_at(src, mv, f / max(1, frames - 1))
@@ -339,7 +336,7 @@ def build(film, only, music, out, brand, workers):
         align = json.load(open(aj)) if os.path.exists(aj) else None
         text = it["text"]
         write_ass(ass, text, align, a, it["chapter"] if it["first"] else None, brand, lead)
-        sig = f"v3|{a:.3f}|{frames}|{os.path.getmtime(find_img(film, n))}|{prev and os.path.getmtime(prev[0])}|{open(ass).read()}"
+        sig = f"v4|{a:.3f}|{frames}|{os.path.getmtime(find_img(film, n))}|{prev and os.path.getmtime(prev[0])}|{open(ass).read()}"
         sigf = clip + ".sig"
         if os.path.exists(clip) and os.path.exists(sigf) and open(sigf).read() == sig:
             return n
@@ -357,14 +354,32 @@ def build(film, only, music, out, brand, workers):
     raw = f"{film}/clips/_joined.mp4"
     run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", raw])
     total = dur_of(raw)
-    # audio: voice (+ quiet music bed, ducked), two-pass loudness to -14 LUFS
+    # voice: every paragraph placed at its exact sample position, so sound never drifts from the picture
+    import numpy as np, wave
+    SR = 48000
+    track = np.zeros(int(sum(j[4] for j in jobs) / FPS * SR) + SR, dtype=np.float32)
+    pos = 0
+    for n, it, a, lead, frames, prev in jobs:
+        pcm = subprocess.run(["ffmpeg", "-v", "error", "-i", f"{film}/vo/{n:03d}.mp3", "-ac", "1", "-ar", str(SR), "-f", "f32le", "-"], capture_output=True).stdout
+        x = np.frombuffer(pcm, dtype=np.float32)[:int(a * SR)].copy()
+        k = min(len(x), int(0.06 * SR))
+        if k:
+            x[-k:] *= np.linspace(1, 0, k, dtype=np.float32)
+        s0 = int(round((pos / FPS + lead) * SR)); track[s0:s0 + len(x)] += x
+        pos += frames
+    track = track[:int(pos / FPS * SR)]
+    voice = f"{film}/clips/_voice.wav"
+    with wave.open(voice, "wb") as wv:
+        wv.setnchannels(1); wv.setsampwidth(2); wv.setframerate(SR)
+        wv.writeframes((np.clip(track, -1, 1) * 32767).astype("<i2").tobytes())
+    # mix: voice (+ quiet music bed, ducked), two-pass loudness to -14 LUFS
     if music:
-        graph = (f"[1:a]aloop=loop=-1:size=2e9,atrim=0:{total:.2f},volume=-27dB,afade=t=in:d=3,afade=t=out:st={max(0, total - 5):.2f}:d=5[m];"
-                 f"[0:a]asplit[v1][v2];[m][v2]sidechaincompress=threshold=0.03:ratio=6:attack=40:release=600[md];[v1][md]amix=inputs=2:normalize=0[mix]")
-        ins = ["-i", raw, "-i", music]
+        graph = (f"[2:a]aloop=loop=-1:size=2e9,atrim=0:{total:.2f},volume=-27dB,afade=t=in:d=3,afade=t=out:st={max(0, total - 5):.2f}:d=5[m];"
+                 f"[1:a]asplit[v1][v2];[m][v2]sidechaincompress=threshold=0.03:ratio=6:attack=40:release=600[md];[v1][md]amix=inputs=2:normalize=0[mix]")
+        ins = ["-i", raw, "-i", voice, "-i", music]
     else:
-        graph = "[0:a]anull[mix]"; ins = ["-i", raw]
-    p = subprocess.run(["ffmpeg", "-hide_banner", *ins, "-filter_complex", graph + ";[mix]loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json[o]",
+        graph = "[1:a]anull[mix]"; ins = ["-i", raw, "-i", voice]
+    p = subprocess.run(["ffmpeg", "-hide_banner", *ins, "-filter_complex", graph + ";[mix]aformat=channel_layouts=stereo,loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json[o]",
                         "-map", "[o]", "-f", "null", "-"], capture_output=True, text=True)
     m = json.loads(p.stderr[p.stderr.rindex("{"):p.stderr.rindex("}") + 1])
     ln = (f"loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}:"
@@ -372,8 +387,8 @@ def build(film, only, music, out, brand, workers):
     if "inf" in str(m["input_i"]):                      # silent test audio: nothing to normalise
         ln = "anull"
     dst = f"{film}/{out}"
-    run(["ffmpeg", "-y", "-v", "error", *ins, "-filter_complex", graph + f";[mix]{ln}[o]", "-map", "0:v", "-map", "[o]",
-         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", dst])
+    run(["ffmpeg", "-y", "-v", "error", *ins, "-filter_complex", graph + f";[mix]aformat=channel_layouts=stereo,{ln}[o]", "-map", "0:v", "-map", "[o]",
+         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", "-t", f"{total:.3f}", "-movflags", "+faststart", dst])
     # chapters for the description
     ch = [(t, it["chapter"]) for n, t, it in cues if it["first"]]
     if ch:
