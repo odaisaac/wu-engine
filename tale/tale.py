@@ -194,9 +194,9 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,{FONT},66,&H00FFFFFF,&H00FFFFFF,&H00141414,&H96000000,1,0,0,0,100,100,0,0,1,5,3,2,160,160,96,1
-Style: Chap,{FONT},40,&H00E9F4FF,&H00FFFFFF,&H00141414,&H96000000,1,0,0,0,100,100,3,0,1,3,2,8,80,80,70,1
-Style: Brand,{FONT},30,&H00D8ECFF,&H00FFFFFF,&H00141414,&H96000000,1,0,0,0,100,100,1,0,1,2,1,7,48,48,40,1
+Style: Cap,{FONT},74,&H00FFFFFF,&H00FFFFFF,&H00141414,&H96000000,1,0,0,0,100,100,0,0,1,5,3,2,160,160,96,1
+Style: Chap,{FONT},44,&H00E9F4FF,&H00FFFFFF,&H00141414,&H96000000,1,0,0,0,100,100,3,0,1,3,2,9,70,70,56,1
+Style: Brand,DejaVu Serif,58,&H005CC8FF,&H00FFFFFF,&H00101010,&H96000000,1,0,0,0,100,100,0,0,1,4,2,7,56,56,44,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -214,23 +214,66 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 # ---------- build ----------
-MOVES = ["in", "out", "left", "in", "right", "out"]
+MOVES = ["in", "left", "out", "right", "in", "out"]
+SRC_W, SRC_H = 2400, 1350     # working size of every picture (1.25x the frame)
+FADE = 14                     # frames of dissolve from the previous picture
 
 
-def zoom_filter(n, frames, host):
-    z0, z1 = (1.0, 1.10)
-    mv = "in" if host else MOVES[n % len(MOVES)]
-    t = f"(on/{max(1, frames - 1)})"
-    if mv == "in":
-        z = f"{z0}+{z1 - z0}*{t}"; x = "iw/2-(iw/zoom/2)"; y = "ih/2-(ih/zoom/2)"
-    elif mv == "out":
-        z = f"{z1}-{z1 - z0}*{t}"; x = "iw/2-(iw/zoom/2)"; y = "ih/2-(ih/zoom/2)"
-    elif mv == "left":
-        z = "1.10"; x = f"(iw-iw/zoom)*(1-{t})"; y = "ih/2-(ih/zoom/2)"
+def load_src(path):
+    import cv2
+    img = cv2.imread(path, cv2.IMREAD_COLOR)
+    h, w = img.shape[:2]; k = max(SRC_W / w, SRC_H / h)
+    img = cv2.resize(img, (round(w * k), round(h * k)), interpolation=cv2.INTER_LANCZOS4 if k > 1 else cv2.INTER_AREA)
+    h, w = img.shape[:2]; y0 = (h - SRC_H) // 2; x0 = (w - SRC_W) // 2
+    img = img[y0:y0 + SRC_H, x0:x0 + SRC_W]
+    if k > 1.3:                                       # enlarged a lot: bring back some edge definition
+        blur = cv2.GaussianBlur(img, (0, 0), 1.6)
+        img = cv2.addWeighted(img, 1.55, blur, -0.55, 0)
+    return img
+
+
+def frame_at(src, move, t):
+    """One frame of the slow camera move at progress t (0..1). Sub-pixel exact, so it never jitters."""
+    import cv2, numpy as np
+    z0, z1 = 1.0, 1.085
+    if move == "in":
+        z, cx, cy = z0 + (z1 - z0) * t, 0.5, 0.5
+    elif move == "out":
+        z, cx, cy = z1 - (z1 - z0) * t, 0.5, 0.5
     else:
-        z = "1.10"; x = f"(iw-iw/zoom)*{t}"; y = "ih/2-(ih/zoom/2)"
-    return (f"scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,"
-            f"zoompan=z='{z}':x='{x}':y='{y}':d={frames}:s={W}x{H}:fps={FPS}")
+        z = 1.07; span = (1 - 1 / z) / 2
+        cx = 0.5 + span * (1 - 2 * t) * (1 if move == "left" else -1); cy = 0.5
+    vw, vh = SRC_W / z, SRC_H / z                      # visible window in source pixels
+    x0, y0 = cx * SRC_W - vw / 2, cy * SRC_H - vh / 2
+    k = W / vw
+    M = np.float32([[k, 0, -x0 * k], [0, k, -y0 * k]])
+    return cv2.warpAffine(src, M, (W, H), flags=cv2.INTER_AREA if k < 0.6 else cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
+
+
+def move_of(n, host):
+    return "in" if host else MOVES[n % len(MOVES)]
+
+
+def render_clip(img, prev, n, host, frames, ass, audio, lead, clip):
+    import cv2
+    src = load_src(img)
+    last = frame_at(load_src(prev[0]), move_of(prev[1], prev[2]), 1.0) if prev else None
+    esc = ass.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
+    afilt = (f"adelay={int(lead * 1000)}:all=1," if lead else "") + f"apad=whole_dur={frames / FPS:.4f}"
+    p = subprocess.Popen(["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+                          "-i", audio, "-filter_complex", f"[0:v]subtitles='{esc}',format=yuv420p[v];[1:a]aresample=48000,{afilt}[a]",
+                          "-map", "[v]", "-map", "[a]", "-frames:v", str(frames), "-t", f"{frames / FPS:.4f}", "-c:v", "libx264", "-preset", "veryfast",
+                          "-crf", "18", "-c:a", "aac", "-b:a", "192k", "-ac", "2", clip], stdin=subprocess.PIPE)
+    mv = move_of(n, host)
+    for f in range(frames):
+        fr = frame_at(src, mv, f / max(1, frames - 1))
+        if last is not None and f < FADE:
+            a = (f + 1) / (FADE + 1)
+            fr = cv2.addWeighted(fr, a, last, 1 - a, 0)
+        p.stdin.write(fr.tobytes())
+    p.stdin.close()
+    if p.wait():
+        raise RuntimeError(f"ffmpeg failed on clip {n}")
 
 
 def find_img(film, n):
@@ -254,26 +297,22 @@ def build(film, only, music, out, brand, workers):
         a = dur_of(f"{film}/vo/{n:03d}.mp3")
         lead = CHAPTER_GAP if (it["first"] and idx) else 0.0
         frames = round((lead + a + GAP) * FPS)
-        jobs.append((n, it, a, lead, frames)); cues.append((n, t0 + lead, it)); t0 += frames / FPS
+        pv = want[idx - 1] if idx else None
+        prev = (find_img(film, pv), pv, items[pv - 1]['host']) if pv else None
+        jobs.append((n, it, a, lead, frames, prev)); cues.append((n, t0 + lead, it)); t0 += frames / FPS
 
     def one(job):
-        n, it, a, lead, frames = job
+        n, it, a, lead, frames, prev = job
         clip, ass = f"{film}/clips/{n:03d}.mp4", f"{film}/clips/{n:03d}.ass"
         aj = f"{film}/vo/{n:03d}.json"
         align = json.load(open(aj)) if os.path.exists(aj) else None
         text = it["text"]
         write_ass(ass, text, align, a, it["chapter"] if it["first"] else None, brand, lead)
-        sig = f"{frames}|{os.path.getmtime(find_img(film, n))}|{open(ass).read()}"
+        sig = f"v2|{frames}|{os.path.getmtime(find_img(film, n))}|{prev and os.path.getmtime(prev[0])}|{open(ass).read()}"
         sigf = clip + ".sig"
         if os.path.exists(clip) and os.path.exists(sigf) and open(sigf).read() == sig:
             return n
-        esc = ass.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
-        vf = f"{zoom_filter(n, frames, it['host'])},subtitles='{esc}',format=yuv420p"
-        afilt = f"adelay={int(lead * 1000)}:all=1,apad=whole_dur={frames / FPS:.4f}" if lead else f"apad=whole_dur={frames / FPS:.4f}"
-        run(["ffmpeg", "-y", "-v", "error", "-loop", "1", "-framerate", str(FPS), "-i", find_img(film, n), "-i", f"{film}/vo/{n:03d}.mp3",
-             "-filter_complex", f"[0:v]{vf}[v];[1:a]aresample=48000,{afilt}[a]", "-map", "[v]", "-map", "[a]",
-             "-frames:v", str(frames), "-t", f"{frames / FPS:.4f}", "-r", str(FPS), "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
-             "-c:a", "aac", "-b:a", "192k", "-ac", "2", clip])
+        render_clip(find_img(film, n), prev, n, it['host'], frames, ass, f"{film}/vo/{n:03d}.mp3", lead, clip)
         open(sigf, "w").write(sig)
         return n
 
