@@ -10,3 +10,6 @@ __pycache__/
 video/public/thumb_*.jpg
 assets/sfx/*.mp3
 video/public/thumb_*.png
+tale/fonts/
+.env
+local/
