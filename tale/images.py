@@ -24,9 +24,9 @@ STYLES = {
     "watercolour": "A soft ink and watercolour illustration on cream paper, fine pen lines and gentle washes of colour.",
     "storybook": "A warm, detailed children's storybook illustration with soft light and rich colours.",
     "photo": "A cinematic documentary photograph, natural light, shallow depth of field, realistic detail.",
-    "paper": "A hand-drawn cartoon illustration in the style of a satirical newspaper drawing on warm textured paper, "
+    "paper": "A hand-drawn cartoon illustration in the style of a satirical newspaper drawing with a subtle warm paper grain across the whole picture, "
              "bold black ink outlines, flat bright colours with soft shading, big expressive exaggerated faces and reactions, "
-             "one clear focal subject, cinematic lighting.",
+             "one clear focal subject, cinematic lighting, the drawing runs off every edge of the frame, period-correct objects only.",
     "comic": "A bold modern comic-book panel, thick ink lines, halftone shading, dramatic angles and strong colour contrast.",
 }
 NO_REAL = (" All people are invented characters, not real or famous people; never draw a likeness of a real person, "
@@ -45,6 +45,30 @@ def style_line(s, character=""):
         line += (" The recurring main character, drawn exactly the same in every picture whenever the scene includes him or her: "
                  + character.rstrip(". ") + ".")
     return line + FRAME
+
+
+def trim_border(path):
+    """Gemini sometimes draws a paper margin or frame round the picture. Cut flat edges off and refill 16:9."""
+    try:
+        import numpy as np
+        from PIL import Image, ImageOps
+    except ImportError:
+        return False
+    im = Image.open(path).convert("RGB"); g = np.asarray(im.convert("L")).astype(float)
+
+    def flat(lines):
+        n = 0
+        for ln in lines:
+            if ln.std() < 12: n += 1
+            else: break
+        return n
+    t, b, l, r = flat(g), flat(g[::-1]), flat(g.T), flat(g.T[::-1])
+    if max(t, b, l, r) < 6 or max(t, b) > im.height * 0.2 or max(l, r) > im.width * 0.2:
+        return False
+    pad = 6
+    box = (l + pad, t + pad, im.width - r - pad, im.height - b - pad)
+    ImageOps.fit(im.crop(box), im.size, Image.LANCZOS).save(path, quality=92)
+    return True
 
 
 def read_prompts(film):
@@ -113,6 +137,8 @@ def cmd_import(film, zips, host):
                 dst = f"{film}/thumb_src.jpg" if base.lower().startswith("thumb") else f"{film}/img/{base}"
                 with zf.open(name) as src, open(dst, "wb") as out:
                     shutil.copyfileobj(src, out)
+                if not base.lower().startswith("thumb") and trim_border(dst):
+                    print(f"  {base}: trimmed a border")
                 got += 1
     host_src = host or next((p for p in glob.glob(f"{film}/img/host.*")), None)
     hosts = [it["i"] for it in items if it["host"]]
