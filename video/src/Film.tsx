@@ -238,7 +238,10 @@ const Finish: React.FC = () => {
 const SHOW_ACTS = (spec as { showActs?: boolean }).showActs === true;
 const BG = (j: number) => bgOf(SHOTS[j], j);
 
-export const FilmBody: React.FC<{ captions?: boolean }> = ({ captions = true }) => (
+export const FilmBody: React.FC<{ captions?: boolean }> = ({ captions = true }) => {
+  // in a vertical Short the footage overlay is hidden, so its source tag would sit alone and get cropped
+  const inShort = React.useContext(ShortMode);
+  return (
   <AbsoluteFill style={{ background: "#000" }}>
     <MBDefs />
     {timing.shots.map((t, i) => {
@@ -250,7 +253,7 @@ export const FilmBody: React.FC<{ captions?: boolean }> = ({ captions = true }) 
           <Mover i={i} dur={t.dur} shots={SHOTS} bg={BG}>
             {k === "footage" || k === "photo" ? <Footage s={s} dur={t.dur} i={i} /> : k === "subscribe" ? <SubMid dur={t.dur} /> : k === "endcard" ? <EndCard dur={t.dur} /> : k === "intro" ? <Intro s={s} dur={t.dur} /> : <Graphic s={s} dur={t.dur} i={i} />}
             {s.act && SHOW_ACTS ? <ActTag label={s.act.label} title={s.act.title} /> : null}
-            {s.source ? <SourceTag text={s.source} /> : null}
+            {s.source && !(inShort && (k === "footage" || k === "photo")) ? <SourceTag text={s.source} /> : null}
           </Mover>
           </CueCtx.Provider>
           <TransFX i={i} dur={t.dur} shots={SHOTS} bg={BG} />
@@ -261,7 +264,8 @@ export const FilmBody: React.FC<{ captions?: boolean }> = ({ captions = true }) 
     })}
     <Finish />
   </AbsoluteFill>
-);
+  );
+};
 export const Film: React.FC = () => <FilmBody />;
 export const TOTAL = timing.total;
 export const SHOT_LIST = SHOTS;
