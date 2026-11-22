@@ -79,12 +79,14 @@ def story(im, top, big, pill):
         f = fit(d, top.upper(), "anton", 92, 700); outlined(d, (46, y), top.upper(), f, WHITE); y += f.size + 10
     f = fit(d, big.upper(), "anton", 150, 640); outlined(d, (42, y), big.upper(), f, GOLD, stroke=8); y += f.size + 46
     if pill:
-        f = fit(d, pill.upper(), "anton", 76, 600); tw = d.textlength(pill.upper(), font=f)
-        sh = Image.new("RGBA", (W, H), (0, 0, 0, 0)); ImageDraw.Draw(sh).rounded_rectangle((52, y + 12, 52 + tw + 52, y + f.size + 42), 10, fill=(0, 0, 0, 170))
+        # size the pill from the letters' real ink box so the words sit in the exact middle
+        f = fit(d, pill.upper(), "anton", 76, 600); l, t, r, b = d.textbbox((0, 0), pill.upper(), font=f)
+        px, py = 28, 20; pw, ph = (r - l) + 2 * px, (b - t) + 2 * py
+        sh = Image.new("RGBA", (W, H), (0, 0, 0, 0)); ImageDraw.Draw(sh).rounded_rectangle((52, y + 12, 52 + pw, y + ph + 12), 10, fill=(0, 0, 0, 170))
         im.paste(sh.filter(ImageFilter.GaussianBlur(12)), (0, 0), sh.filter(ImageFilter.GaussianBlur(12)))
         d = ImageDraw.Draw(im)
-        d.rounded_rectangle((48, y, 48 + tw + 52, y + f.size + 30), 8, fill=RED)
-        d.text((48 + 26, y + 8), pill.upper(), font=f, fill=WHITE)
+        d.rounded_rectangle((48, y, 48 + pw, y + ph), 8, fill=RED)
+        d.text((48 + px - l, y + py - t), pill.upper(), font=f, fill=WHITE)
     return im
 
 
