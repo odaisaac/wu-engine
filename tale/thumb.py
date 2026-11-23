@@ -8,7 +8,7 @@
 Layouts
   story  white line, big gold headline, red pill (picture subject on the right, text on the dark left)
   brand  your channel name small at the top left, two big white lines on the left
-  money  one huge figure across the top: money amounts and percentages in red, the rest in white
+  money  one huge figure across the top: money amounts and percentages in red (green when the figure starts with +), the rest in white
 
 The picture is FILM/thumb_src.jpg (or --img). Make two layouts and run them in YouTube's Test & Compare.
 Keep the words to 2-4 big ones; a number or money figure in the headline usually helps.
@@ -24,7 +24,7 @@ W, H = 1280, 720
 FONT_SRC = os.path.join(env.ROOT, "video", "public", "fonts")
 FACES = {"anton": "anton-latin-400-normal", "archivo": "archivo-black-latin-400-normal",
          "playfair": "playfair-display-latin-700-normal", "inter": "inter-latin-700-normal"}
-GOLD, RED, WHITE = (255, 200, 61), (200, 32, 43), (255, 255, 255)
+GOLD, RED, WHITE, GREEN = (255, 200, 61), (200, 32, 43), (255, 255, 255), (60, 205, 90)
 MONEY = re.compile(r"^[-+]?[$€£₦]?\d[\d.,]*[%kKmMbB]?$|^[-+]?[$€£₦]|billion|million|trillion|%$", re.I)
 
 
@@ -113,7 +113,7 @@ def money(im, big):
     f = fit(d, big.upper(), "archivo", 120, W - 80)
     total = d.textlength(big.upper(), font=f); x = (W - total) / 2; sp = d.textlength(" ", font=f)
     for wd in words:
-        outlined(d, (x, 22), wd, f, RED if MONEY.search(wd) else WHITE, stroke=6)
+        outlined(d, (x, 22), wd, f, (GREEN if big.lstrip().startswith("+") else RED) if MONEY.search(wd) else WHITE, stroke=6)
         x += d.textlength(wd, font=f) + sp
     return im
 
