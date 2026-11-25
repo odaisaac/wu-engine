@@ -58,7 +58,7 @@ def band(src, t, direction):
     return cv2.warpAffine(src, M, (SW, PIC_H), flags=cv2.INTER_AREA, borderMode=cv2.BORDER_REFLECT)
 
 
-def write_ass(path, tag, hook, items, total):
+def write_ass(path, tag, hook, items, total, end="Full story: tap the link below ▶"):
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {SW}
@@ -84,7 +84,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             if k >= 0:
                 ws[k] = f"{{\\c{HL}}}{ws[k]}{{\\c&HFFFFFF&}}"
             ev.append(f"Dialogue: 2,{ass_time(start + s)},{ass_time(start + e)},Cap,,0,0,0,,{{\\fad(100,0)}}{' '.join(ws)}")
-    ev.append(f"Dialogue: 3,{ass_time(total - 3.2)},{ass_time(total)},End,,0,0,0,,{{\\fad(250,0)\\3c&H2B20C8&}}Full story: tap the link below ▶")
+    ev.append(f"Dialogue: 3,{ass_time(total - 3.2)},{ass_time(total)},End,,0,0,0,,{{\\fad(250,0)\\3c&H2B20C8&}}{end}")
     open(path, "w", encoding="utf-8").write(head + "\n".join(ev) + "\n")
 
 
@@ -99,7 +99,8 @@ def make_short(film, n, spec, tag, out):
         t += a + GAP
     total = t + 0.4
     ass = out.replace(".mp4", ".ass")
-    write_ass(ass, tag, spec["hook"], [(txt, al, st, a) for _, txt, al, st, a in segs], total)
+    write_ass(ass, tag, spec["hook"], [(txt, al, st, a) for _, txt, al, st, a in segs], total,
+              spec.get("end", "Full story: tap the link below ▶"))
     # voice track
     SR = 48000; track = np.zeros(int(total * SR) + SR, dtype=np.float32)
     for p, _, _, st, a in segs:
@@ -145,18 +146,19 @@ def make_short(film, n, spec, tag, out):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("film"); ap.add_argument("--only", type=int)
+    ap.add_argument("--config", default="shorts.json", help="another list of Shorts, e.g. shorts2.json (files named by each Short's \"name\")")
     a = ap.parse_args()
-    cfg = json.load(open(f"{a.film}/shorts.json", encoding="utf-8"))
+    cfg = json.load(open(f"{a.film}/{a.config}", encoding="utf-8"))
     os.makedirs(f"{a.film}/shorts", exist_ok=True)
     tag = cfg.get("tag", "Learn English with history")
     md = ["# Shorts", "", "After uploading each Short: Studio > the Short > Related video > choose the full video.", ""]
     for k, spec in enumerate(cfg["shorts"], 1):
-        out = f"{a.film}/shorts/short-{k:02d}.mp4"
+        out = f"{a.film}/shorts/{spec['name']}.mp4" if spec.get("name") else f"{a.film}/shorts/short-{k:02d}.mp4"
         if a.only and a.only != k:
             continue
         total = make_short(a.film, k, spec, tag, out)
         print(f"{out}  {total:.0f}s  {spec['hook']}")
-        md += [f"## short-{k:02d}.mp4 ({total:.0f} s)", "", f"Title: {spec.get('title', spec['hook'])}", "",
+        md += [f"## {os.path.basename(out)} ({total:.0f} s)", "", f"Title: {spec.get('title', spec['hook'])}", "",
                f"Description: {spec.get('desc', 'Learn English through story. Watch the full story on the channel.')}", ""]
     if not a.only:
-        open(f"{a.film}/shorts/shorts.md", "w", encoding="utf-8").write("\n".join(md))
+        open(f"{a.film}/shorts/" + ("shorts.md" if a.config == "shorts.json" else a.config.replace(".json", ".md")), "w", encoding="utf-8").write("\n".join(md))
